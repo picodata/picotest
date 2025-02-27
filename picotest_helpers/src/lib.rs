@@ -13,7 +13,7 @@ use std::{
 };
 use uuid::Uuid;
 
-const SOCKET_PATH: &str = "cluster/i_1/admin.sock";
+const SOCKET_PATH: &str = "cluster/i1/admin.sock";
 
 #[derive(Debug)]
 pub struct Cluster {
