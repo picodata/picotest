@@ -1,9 +1,10 @@
 use log::info;
 use rand::distributions::Alphanumeric;
 use rand::Rng;
+use serde::Serialize;
 use std::ffi::OsStr;
 use std::fs;
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader, ErrorKind, Write};
 use std::thread;
 use std::{
     io::Error,
@@ -53,6 +54,37 @@ impl Cluster {
     pub fn recreate(self) -> Result<Self, Error> {
         self.stop();
         self.run()
+    }
+
+    pub fn apply_plugin_config<T: Serialize>(&self, config: &T) -> Result<(), Error> {
+        let config_path = format!("{}/{}", self.plugin_path(), "plugin_config.yaml");
+
+        let file = std::fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .open(&config_path)?;
+
+        serde_yml::to_writer(file, config).map_err(|err| {
+            Error::new(
+                ErrorKind::Other,
+                format!("Failed to write plugin config yaml: {err}"),
+            )
+        })?;
+
+        run_pike(
+            vec![
+                "config",
+                "apply",
+                "--data-dir",
+                &self.data_dir,
+                "--config-path",
+                &config_path,
+            ],
+            &self.path,
+        )
+        .expect("Failed to apply configuration");
+
+        Ok(())
     }
 
     fn wait(self) -> Result<Self, Error> {

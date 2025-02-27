@@ -6,4 +6,6 @@ edition = "2021"
 [dependencies]
 log = "0.4.22"
 rand = "0.8.5"
+serde = "1.0.218"
+serde_yml = "0.0.12"
 uuid = { version = "1.11.1", features = ["v4"] }
