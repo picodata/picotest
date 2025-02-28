@@ -4,7 +4,7 @@ use constcat::concat;
 use helpers::{build_plugin, wait_for_proc};
 use picotest::*;
 use rstest::*;
-use std::time::Duration;
+use std::{fs, time::Duration};
 
 pub const TMP_DIR: &str = "../tmp/";
 pub const PLUGIN_NAME: &str = "test_plugin";
@@ -18,9 +18,11 @@ struct Plugin {
 #[fixture]
 #[once]
 pub fn plugin() -> Plugin {
-    let mut proc = run_pike(vec!["plugin", "new", PLUGIN_NAME], TMP_DIR).unwrap();
+    fs::create_dir_all(TMP_DIR).expect("Failed to create tmp directory");
+    let mut proc = run_pike(vec!["plugin", "new", PLUGIN_NAME], TMP_DIR)
+        .expect("Failed to generate plugin boilerplate code");
     wait_for_proc(&mut proc, Duration::from_secs(10));
-    let _ = build_plugin(PLUGIN_DIR).expect("plugin must be building");
+    let _ = build_plugin(PLUGIN_DIR).expect("Failed to build plugin");
     Plugin {
         name: PLUGIN_NAME.to_string(),
     }

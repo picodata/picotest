@@ -63,14 +63,15 @@ pub fn picotest(attr: TokenStream, item: TokenStream) -> TokenStream {
 
             let run_cluster: Stmt = parse_quote! {
                 let mut cluster = CLUSTER.get_or_init(|| {
-                    picotest::run_cluster(#path, #timeout).unwrap()
+                    picotest::run_cluster(#path, #timeout)
+                        .expect("Failed to start the cluster")
                 });
             };
 
             let stop_cluster: Stmt = parse_quote! {
                 if TESTS_COUNT.fetch_sub(1, Ordering::SeqCst) == 1 {
                     let mut cluster = CLUSTER.get().unwrap();
-                    cluster.stop();
+                    cluster.stop().expect("Failed to stop the cluster");
                     drop(cluster);
                 }
             };
@@ -95,9 +96,16 @@ pub fn picotest(attr: TokenStream, item: TokenStream) -> TokenStream {
                             func.attrs.push(rstest_macro.clone());
                             let block = func.block.clone();
                             let body: Stmt = parse_quote! {
-                                let result = panic::catch_unwind(|| {
+                                let result = panic::catch_unwind(
+                                // Cluster carries JoinHandles's of spawned instances,
+                                // which are not unwind safe. So far explicitly wrap it
+                                // into AssertUnwindSafe to pass it though catch_unwind / resume_unwind
+                                // routines, which require objects to implement UnwindSafe trait.
+                                //
+                                // TODO: wrap cluster into Mutex or other sync wrapper.
+                                panic::AssertUnwindSafe(|| {
                                     #block
-                                });
+                                }));
                             };
 
                             func.block.stmts = vec![
