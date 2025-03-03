@@ -1,0 +1,13 @@
+name: test_plugin
+description: A plugin for picodata
+version: 0.1.0
+services:
+- name: service1
+  default_configuration:
+    value1: overriden1
+- name: service2
+  default_configuration:
+    value1: overriden2
+    value2: 22
+migration:
+- migrations/0001_init.sql

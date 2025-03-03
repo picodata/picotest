@@ -1,0 +1,5 @@
+service1:
+  value1: overriden1
+service2:
+  value1: overriden2
+  value2: 22
