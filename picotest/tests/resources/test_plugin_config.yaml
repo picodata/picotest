@@ -1,0 +1,2 @@
+main:
+  value: should_be_overridden_in_test
