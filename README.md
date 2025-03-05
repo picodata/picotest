@@ -1,5 +1,7 @@
 # Test framework for Picodata plugin
 
+[![CI](https://github.com/picodata/picotest/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/picodata/picotest/actions/workflows/build-and-test.yml)
+
 ## Введение
 Picotest является оберткой над `rstest`, которая позволяет запускать кластер Picodata с помощью `pike` для запуска тестов
 
