@@ -7,3 +7,6 @@ edition = "2021"
 log = "0.4.22"
 rand = "0.8.5"
 uuid = { version = "1.11.1", features = ["v4"] }
+picodata-pike = { git = "https://github.com/picodata/pike.git" }
+anyhow = "1.0.96"
+toml = "0.8.20"

@@ -1,63 +1,115 @@
-use log::info;
+use anyhow::Context;
+use log::{debug, info, warn};
+use pike::cluster::{PicodataInstance, RunParamsBuilder, StopParamsBuilder, Topology};
 use rand::distributions::Alphanumeric;
 use rand::Rng;
 use std::ffi::OsStr;
 use std::fs;
 use std::io::{BufRead, BufReader, Write};
+use std::path::{Path, PathBuf};
 use std::thread;
 use std::{
     io::Error,
-    path::Path,
     process::{Child, Command, Stdio},
     time::{Duration, Instant},
 };
 use uuid::Uuid;
 
-const SOCKET_PATH: &str = "cluster/i_1/admin.sock";
+const SOCKET_PATH: &str = "cluster/i1/admin.sock";
+const TOPOLOGY_FILENAME: &str = "topology.toml";
 
-#[derive(Debug)]
+fn parse_topology(path: &PathBuf) -> anyhow::Result<Topology> {
+    toml::from_str(
+        &fs::read_to_string(path).context(format!("Failed to read file '{}'", path.display()))?,
+    )
+    .context(format!(
+        "Failed to parse topology TOML from path '{}'",
+        path.display()
+    ))
+}
+
 pub struct Cluster {
     pub uuid: Uuid,
-    pub path: String,
-    pub data_dir: String,
+    pub plugin_path: PathBuf,
+    pub data_dir: PathBuf,
     pub timeout: u8,
+    socket_path: PathBuf,
+    topology: Topology,
+    instances: Option<Vec<PicodataInstance>>,
 }
 
 impl Drop for Cluster {
     fn drop(&mut self) {
-        self.stop();
+        if let Err(err) = self.stop() {
+            warn!("Failed to stop picodata cluster: {err}");
+        }
     }
 }
 
 impl Cluster {
-    pub fn new(path: String, data_dir: String, timeout: u8) -> Self {
-        Self {
+    pub fn new(plugin_path: &str, data_dir: &str, timeout: u8) -> anyhow::Result<Self> {
+        let data_dir = PathBuf::from(data_dir);
+        let plugin_path = PathBuf::from(plugin_path);
+        let socket_path = plugin_path.join(&data_dir).join(SOCKET_PATH);
+
+        let topology_path = plugin_path.join(TOPOLOGY_FILENAME);
+        let topology = parse_topology(&topology_path)?;
+
+        let cluster = Self {
             uuid: Uuid::new_v4(),
-            path,
+            plugin_path,
             data_dir,
             timeout,
+            socket_path,
+            topology,
+            instances: None,
+        };
+
+        Ok(cluster)
+    }
+
+    pub fn stop(&self) -> anyhow::Result<()> {
+        let params = StopParamsBuilder::default()
+            .plugin_path(self.plugin_path.clone())
+            .data_dir(self.data_dir.clone())
+            .build()?;
+
+        debug!("Stopping the cluster with parameters {params:?}");
+        pike::cluster::stop(&params)?;
+
+        if let Err(err) = fs::remove_dir_all(self.plugin_path.join(&self.data_dir)) {
+            warn!("Failed to remove cluster data directory: {err}");
         }
+
+        Ok(())
     }
 
-    pub fn stop(&self) {
-        run_pike(vec!["stop", "--data-dir", &self.data_dir], &self.path).unwrap();
-        thread::sleep(Duration::from_secs(5));
-        let _ = fs::remove_dir_all(self.plugin_path());
-    }
+    pub fn run(mut self) -> anyhow::Result<Self> {
+        let params = RunParamsBuilder::default()
+            .plugin_path(self.plugin_path.clone())
+            .data_dir(self.data_dir.clone())
+            .topology(self.topology.clone())
+            .build()?;
 
-    pub fn run(self) -> Result<Self, Error> {
-        run_pike(vec!["run", "--data-dir", &self.data_dir], &self.path).unwrap();
+        debug!("Starting the cluster with parameters {params:?}");
+        let intances: Vec<PicodataInstance> = pike::cluster::run(&params)?;
+        self.instances.replace(intances);
         self.wait()
     }
 
-    pub fn recreate(self) -> Result<Self, Error> {
-        self.stop();
+    pub fn recreate(self) -> anyhow::Result<Self> {
+        self.stop()?;
         self.run()
     }
 
-    fn wait(self) -> Result<Self, Error> {
+    fn wait(self) -> anyhow::Result<Self> {
         let timeout = Duration::from_secs(60);
         let start_time = Instant::now();
+
+        debug!(
+            "Awaiting of cluster readiness (timeout {}s)",
+            timeout.as_secs()
+        );
 
         loop {
             let mut picodata_admin: Child = self.await_picodata_admin()?;
@@ -86,7 +138,7 @@ impl Cluster {
 
             let reader = BufReader::new(stdout);
             for line in reader.lines() {
-                let line = line.expect("failed to read picodata stdout");
+                let line = line.expect("Failed to read picodata stdout");
                 if line.contains("true") {
                     plugin_ready = true;
                 }
@@ -143,14 +195,14 @@ impl Cluster {
 
             let picodata_admin = Command::new("picodata")
                 .arg("admin")
-                .arg(self.socket_path())
+                .arg(self.socket_path.clone())
                 .stdin(Stdio::piped())
                 .stdout(Stdio::piped())
                 .spawn();
 
             match picodata_admin {
                 Ok(process) => {
-                    info!("successfully connected to picodata cluster.");
+                    info!("Successfully connected to picodata cluster.");
                     return Ok(process);
                 }
                 Err(_) => {
@@ -159,19 +211,11 @@ impl Cluster {
             }
         }
     }
-
-    pub fn plugin_path(&self) -> String {
-        format!("{}/{}", &self.path, &self.data_dir)
-    }
-
-    pub fn socket_path(&self) -> String {
-        format!("{}/{}", &self.plugin_path(), SOCKET_PATH)
-    }
 }
 
-pub fn run_cluster(path: &str, timeout: u8) -> Result<Cluster, Error> {
+pub fn run_cluster(plugin_path: &str, timeout: u8) -> anyhow::Result<Cluster> {
     let data_dir = tmp_dir();
-    let cluster = Cluster::new(path.to_owned(), data_dir.to_owned(), timeout);
+    let cluster = Cluster::new(plugin_path, &data_dir, timeout)?;
     cluster.run()
 }
 
