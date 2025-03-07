@@ -1,6 +1,7 @@
 use anyhow::Context;
 use log::{debug, info, warn};
 use pike::cluster::{PicodataInstance, RunParamsBuilder, StopParamsBuilder, Topology};
+use pike::config::ApplyParamsBuilder;
 use rand::distributions::Alphanumeric;
 use rand::Rng;
 use std::ffi::OsStr;
@@ -32,7 +33,7 @@ pub struct Cluster {
     pub uuid: Uuid,
     pub plugin_path: PathBuf,
     pub data_dir: PathBuf,
-    pub timeout: u8,
+    pub timeout: Duration,
     socket_path: PathBuf,
     topology: Topology,
     instances: Option<Vec<PicodataInstance>>,
@@ -47,7 +48,7 @@ impl Drop for Cluster {
 }
 
 impl Cluster {
-    pub fn new(plugin_path: &str, data_dir: &str, timeout: u8) -> anyhow::Result<Self> {
+    pub fn new(plugin_path: &str, data_dir: &str, timeout: Duration) -> anyhow::Result<Self> {
         let data_dir = PathBuf::from(data_dir);
         let plugin_path = PathBuf::from(plugin_path);
         let socket_path = plugin_path.join(&data_dir).join(SOCKET_PATH);
@@ -149,7 +150,7 @@ impl Cluster {
 
             picodata_admin.kill().unwrap();
             if can_connect && plugin_ready {
-                thread::sleep(Duration::from_secs(self.timeout.into()));
+                thread::sleep(self.timeout);
                 return Ok(self);
             }
 
@@ -213,8 +214,9 @@ impl Cluster {
     }
 }
 
-pub fn run_cluster(plugin_path: &str, timeout: u8) -> anyhow::Result<Cluster> {
+pub fn run_cluster(plugin_path: &str, timeout_secs: u64) -> anyhow::Result<Cluster> {
     let data_dir = tmp_dir();
+    let timeout = Duration::from_secs(timeout_secs);
     let cluster = Cluster::new(plugin_path, &data_dir, timeout)?;
     cluster.run()
 }

@@ -10,15 +10,15 @@ use utils::traverse_use_item;
 fn plugin_path_default() -> String {
     ".".to_string()
 }
-fn plugin_timeout_default() -> u8 {
+fn plugin_timeout_secs_default() -> u64 {
     5
 }
 #[derive(Debug, FromMeta)]
 struct PluginCfg {
     #[darling(default = "plugin_path_default")]
     path: String,
-    #[darling(default = "plugin_timeout_default")]
-    timeout: u8,
+    #[darling(default = "plugin_timeout_secs_default")]
+    timeout: u64,
 }
 
 #[proc_macro_attribute]
@@ -40,16 +40,21 @@ pub fn picotest(attr: TokenStream, item: TokenStream) -> TokenStream {
     };
 
     let path = cfg.path;
-    let timeout = cfg.timeout;
+    let timeout_secs = cfg.timeout;
+
+    let run_cluster_call = quote! {
+        picotest::run_cluster(
+            #path,
+            #timeout_secs,
+        ).expect("Failed to start the cluster")
+    }
+    .into_iter();
 
     let rstest_macro: Attribute = parse_quote! { #[rstest] };
     let input = match input {
         Item::Fn(mut func) => {
             let run_cluster: Stmt = parse_quote! {
-                let mut cluster = picotest::run_cluster(
-                    #path,
-                    #timeout,
-                ).unwrap();
+                let mut cluster = #(#run_cluster_call)*;
             };
 
             func.attrs.push(rstest_macro.clone());
@@ -63,8 +68,7 @@ pub fn picotest(attr: TokenStream, item: TokenStream) -> TokenStream {
 
             let run_cluster: Stmt = parse_quote! {
                 let mut cluster = CLUSTER.get_or_init(|| {
-                    picotest::run_cluster(#path, #timeout)
-                        .expect("Failed to start the cluster")
+                    #(#run_cluster_call)*
                 });
             };
 
