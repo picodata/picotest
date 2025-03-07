@@ -801,8 +801,9 @@ dependencies = [
 
 [[package]]
 name = "picodata-pike"
-version = "2.0.0-rc2"
-source = "git+https://github.com/picodata/pike.git#3bd696265e6c06177b0dd652089dc17f540a14a4"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4f36fe8da23dd6d783116e073b90ee90320e6a1db0008eac5e2263459cde2b02"
 dependencies = [
  "anyhow",
  "clap",
@@ -823,6 +824,7 @@ dependencies = [
  "serde_yaml",
  "tar",
  "toml",
+ "toml_edit",
 ]
 
 [[package]]
@@ -833,6 +835,7 @@ dependencies = [
  "picotest_helpers",
  "picotest_macros",
  "rstest",
+ "serde_yaml",
  "uuid",
 ]
 

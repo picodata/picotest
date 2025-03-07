@@ -1,7 +1,7 @@
 use anyhow::Context;
 use log::{debug, info, warn};
 use pike::cluster::{PicodataInstance, RunParamsBuilder, StopParamsBuilder, Topology};
-use pike::config::ApplyParamsBuilder;
+use pike::config::{ApplyParamsBuilder, PluginConfigMap};
 use rand::distributions::Alphanumeric;
 use rand::Rng;
 use std::ffi::OsStr;
@@ -83,6 +83,20 @@ impl Cluster {
         }
 
         Ok(())
+    }
+
+    pub fn apply_config<T>(&self, config: T) -> anyhow::Result<()>
+    where
+        T: Into<PluginConfigMap>,
+    {
+        let params = ApplyParamsBuilder::default()
+            .plugin_path(self.plugin_path.clone())
+            .data_dir(self.data_dir.clone())
+            .config_map(config.into())
+            .build()?;
+
+        debug!("Applying plugin configuration with parameters {params:?}");
+        pike::config::apply(&params)
     }
 
     pub fn run(mut self) -> anyhow::Result<Self> {
