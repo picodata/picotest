@@ -4,11 +4,12 @@ use constcat::concat;
 use helpers::{build_plugin, wait_for_proc};
 use picotest::*;
 use rstest::*;
-use std::{fs, time::Duration};
+use std::{collections::HashMap, fs, time::Duration};
 
 pub const TMP_DIR: &str = "../tmp/";
 pub const PLUGIN_NAME: &str = "test_plugin";
 pub const PLUGIN_DIR: &str = concat!(TMP_DIR, PLUGIN_NAME);
+pub const PLUGIN_SERVICE_NAME: &str = "main";
 
 #[derive(Debug)]
 struct Plugin {
@@ -36,6 +37,31 @@ fn test_func_install_plugin(plugin: &Plugin) {
     ));
     assert!(enabled.is_ok());
     assert!(enabled.is_ok_and(|enabled| enabled.contains("true")));
+}
+
+#[picotest(path = "../tmp/test_plugin")]
+fn test_apply_config(plugin: &Plugin) {
+    let must_be_overriden = "should_be_overridden_after_apply";
+    let service_config = HashMap::from([(
+        "value".to_string(),
+        serde_yaml::to_value(must_be_overriden).unwrap(),
+    )]);
+    let plugin_config = HashMap::from([(PLUGIN_SERVICE_NAME.to_string(), service_config)]);
+
+    cluster
+        .apply_config(plugin_config)
+        .expect("Failed to apply test plugin configuration");
+
+    let service_properties = cluster
+        .run_query(format!(
+            r#"SELECT key, value FROM _pico_plugin_config 
+                    WHERE plugin = '{}' AND entity = '{}';"#,
+            plugin.name, PLUGIN_SERVICE_NAME
+        ))
+        .expect("Failed to run query");
+
+    // TODO: more fine grained verification of key-value pair.
+    assert!(service_properties.contains(must_be_overriden));
 }
 
 #[picotest(path = "../tmp/test_plugin")]

@@ -12,3 +12,4 @@ picotest_helpers = { path = "../picotest_helpers" }
 uuid = { version = "1.11.1", features = ["v4"] }
 rstest = "0.23.0"
 constcat = "0.5.1"
+serde_yaml = "0.9.34"
