@@ -2,24 +2,45 @@
 
 [![CI](https://github.com/picodata/picotest/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/picodata/picotest/actions/workflows/build-and-test.yml)
 
-## Введение
-Picotest является оберткой над `rstest`, которая позволяет запускать кластер Picodata с помощью `pike` для запуска тестов
+## Описание
 
-Установите следующие инструменты:
-- [pike](https://github.com/picodata/pike)
+**Picotest** - это фреймворк для тестирования плагинов, созданных в окружении [`pike`](https://github.com/picodata/pike).
 
-Чтобы использовать его, добавьте в свой `Cargo.toml` файл:
-```toml
-[dev-dependencies]
-rstest = "0.23.0"
-picotest = { git = "https://github.com/picodata/pike.git", branch = "plugin_test_framework" }
+Для использования **Picotest** требуется выполнить следующие действия:
+
+- Установить [pike](https://crates.io/crates/picodata-pike):
+
+```bash
+cargo install picodata-pike
 ```
 
-## Использование
+- Добавить зависимости `picotest` и [`rstest`](https://github.com/la10736/rstest) в `Cargo.toml` плагина:
 
-Макрос `#[picotest]` может быть применим как к функциям, так и к модулям
+```bash
+cargo add picotest --git https://github.com/picodata/picotest.git
+cargo add rstest
+```
 
-для функции:
+## Совместимость с Picodata
+
+Picotest поддерживает версии Picodata начиная с **25.1.1** и выше.
+
+## Интеграционное тестирование
+
+Макрос `#[picotest]` используется для написания интеграционных тестов и может быть применим как к функциям, так и к модулям.
+
+### Атрибуты макроса #[picotest]
+
+Макрос `#[picotest]` поддерживает следующие аргументы:
+
+- **path** - путь до директории плагина. Значение по умолчанию: `$(pwd)`.
+- **timeout** - длительность ожидания после развертывания кластера и перед запуском тестов.
+                Указывается в секундах. Значение по умолчанию: 0 секунд.
+
+### Использование #[picotest] на функциях
+
+При исполльзовании макроса на функциях, `picotest` будет создавать кластер при каждом запуске очередного теста и удалять кластер по завершению теста.
+
 ```rust
 use picotest::picotest;
 use rstest::rstest;
@@ -30,7 +51,10 @@ fn test_foo_bar() {
 }
 ```
 
-для модуля:
+### Использование #[picotest] на модулях
+
+При использовании макроса на модуле, `picotest` автоматически пометит все фукнции которые начинаются с `test_` как `rstest` функции, кластер будет создан только 1 раз и удален по завершению всех тестов в модуле.
+
 ```rust
 use picotest::picotest;
 
@@ -47,22 +71,10 @@ mod test_mod {
 }
 ```
 
-Запустите тесты с использованием переменной RUST_TEST_THREADS=1:
-```sh
-RUST_TEST_THREADS=1 cargo test
-```
 
-наличие переменной `RUST_TEST_THREADS=1` необходимо только в том случае, если вы используете несколько модулей или функций с макросом `#[picotest]`
+### Совместимость с rstest
 
-## Использование #[picotest] на функциях
-
-При исполльзовании макроса на функциях, `picotest` будет создавать кластер при каждом запуске очередного теста и удалять кластер по завершению теста
-
-## Использование #[picotest] на модулях
-При использовании макроса на модуле, `picotest` автоматически пометит все фукнции которые начинаются с `test_` как `rstest` функции, кластер будет создан только 1 раз и удален по завершению всех тестов в модуле
-
-## Возможности расширения
-`picotest` является оберткой над `rstest`, поэтому поддерживает использование `fixture`
+Макро `#[picotest]` является оберткой над [`rstest`](https://github.com/la10736/rstest), поэтому поддерживает использование [`fixture`](https://docs.rs/rstest/latest/rstest/attr.fixture.html).
 
 ```rust
 use picotest::picotest;
@@ -93,24 +105,28 @@ mod test_mod {
 }
 ```
 
-## Дополнительные параметры
+### Запуск тестов
 
-Макрос `#[picotest]` поддерживает следующие аргументы:
+Запустите тесты с использованием переменной `RUST_TEST_THREADS=1`:
 
-* path - путь до дирректории плагина
-* timeout - выждать timeout прежде чем запустить тест 
+```sh
+RUST_TEST_THREADS=1 cargo test
+```
 
+наличие переменной `RUST_TEST_THREADS=1` необходимо только в том случае, если вы используете несколько модулей или функций с макросом `#[picotest]`.
 
-## Пользовательские хуки
+### Пользовательские хуки
 
 Picotest поддерживает работу с хуками `before_all` и `after_all`
 Для использования добавьте в свой `Cargo.toml` файл:
+
 ```toml
 [dev-dependencies]
 test-env-helpers = "0.2.2"
 ```
 
 Пример:
+
 ```rust
 use picotest::picotest;
 use test_env_helpers::{after_all, before_all};
@@ -152,7 +168,7 @@ mod test_mod {
 }
 ```
 
-## Использование без макроса
+### Создание кластера вручную
 
 Picotest позволяет создавать / удалять кластер без использования макроса `#[picotest]`
 
@@ -166,3 +182,77 @@ fn test_without_picotest_macro() {
     assert!(cluster.is_ok_and(|cluster| cluster.path == "."))
 }
 ```
+
+### Ограничения
+
+1. Параллельное исполнение тестов не поддерживается. Тесты должны запускаться **последовательно**, т.е. с переменной окружения `RUST_TEST_THREADS=1` ([issue #2](https://github.com/picodata/picotest/issues/2))
+
+## Модульное тестирование
+
+Макрос `#[picotest_unit]` используется для написания юнит-тестов для плагинов, созданных с помощью утилиты [`pike`](https://github.com/picodata/pike).
+
+```rust
+#[picotest_unit]
+fn test_my_http_query() {
+    let http_client = fibreq::ClientBuilder::new().build();
+
+    let http_request = http_client.get("http://example.com").unwrap();
+    let http_response = http_request.send().unwrap();
+
+    assert!(http_response.status() == http_types::StatusCode::Ok);
+}
+```
+
+### Запуск тестов
+
+Тесты запускаются через интерфейс cargo test с использованием переменной `RUST_TEST_THREADS=1`:
+
+```sh
+RUST_TEST_THREADS=1 cargo test
+```
+
+или опцией `--test_threads=1`:
+
+```sh
+cargo test -- --test_threads=1
+```
+
+### Ограничения
+
+1. `#[picotest_unit]` не может задаваться в модуле под `#[cfg(test)]`:
+
+Пример **неверного** использования макроса:
+
+```rust
+#[cfg(test)]
+mod tests {
+    #[picotest_unit]
+    fn test_declared_under_test_cfg() {}
+}
+```
+
+Пример верного использования макроса:
+
+```rust
+mod tests {
+
+    #[picotest_unit]
+    fn test_is_NOT_declared_under_test_cfg() {}
+}
+```
+
+По скольку каждый юнит-тест компилируется и линкуется в динамическую библиотеку плагина (см. [Структура плагина](https://docs.picodata.io/picodata/25.1/architecture/plugins/#structure)), он не должен быть задан в конфигурации, отличной от debug. В противном случае при сборке тестов они будут проигнорированы компилятором.
+
+2. `#[picotest_unit]` не может использоваться совместно с другими [атрибутами](https://doc.rust-lang.org/rustc/tests/index.html#test-attributes).
+
+Все атрибуты используемые совместно с макросом будут отброшены.
+
+В примере ниже `#[should_panic]` будет отброшен в процессе компиляции.
+
+```rust
+#[should_panic]
+#[picotest_unit]
+fn test_will_ignore_should_panic_attribute() {}
+```
+
+3. Параллельное исполнение тестов не поддерживается. Тесты должны запускаться **последовательно**, т.е. с переменной окружения `RUST_TEST_THREADS=1` ([issue #2](https://github.com/picodata/picotest/issues/2))
