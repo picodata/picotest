@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 picotest_macros = { path = "../picotest_macros" }
 picotest_helpers = { path = "../picotest_helpers" }
+anyhow = "1.0.97"
 
 
 [dev-dependencies]

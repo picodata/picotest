@@ -69,9 +69,9 @@ dependencies = [
 
 [[package]]
 name = "anyhow"
-version = "1.0.96"
+version = "1.0.97"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6b964d184e89d9b6b67dd2715bc8e74cf3107fb2b529990c90cf517326150bf4"
+checksum = "dcfed56ad506cb2c684a14971b8861fdc3baaaae314b9e5f9bb532cbe3ba7a4f"
 
 [[package]]
 name = "anymap2"
@@ -801,9 +801,9 @@ dependencies = [
 
 [[package]]
 name = "picodata-pike"
-version = "2.1.0"
+version = "2.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f36fe8da23dd6d783116e073b90ee90320e6a1db0008eac5e2263459cde2b02"
+checksum = "f9371b1c99cd20a11d48e60a7ca79369735d9507a4159f6da6ee7f5f40df1a8e"
 dependencies = [
  "anyhow",
  "clap",
@@ -831,6 +831,7 @@ dependencies = [
 name = "picotest"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "constcat",
  "picotest_helpers",
  "picotest_macros",

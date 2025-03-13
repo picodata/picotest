@@ -7,6 +7,6 @@ edition = "2021"
 log = "0.4.22"
 rand = "0.8.5"
 uuid = { version = "1.11.1", features = ["v4"] }
-picodata-pike = { version = "2.1.0" }
+picodata-pike = { version = "2.1.1" }
 anyhow = "1.0.96"
 toml = "0.8.20"

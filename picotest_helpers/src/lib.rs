@@ -104,6 +104,7 @@ impl Cluster {
             .plugin_path(self.plugin_path.clone())
             .data_dir(self.data_dir.clone())
             .topology(self.topology.clone())
+            .use_release(false)
             .build()?;
 
         debug!("Starting the cluster with parameters {params:?}");
