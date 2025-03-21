@@ -801,9 +801,9 @@ dependencies = [
 
 [[package]]
 name = "picodata-pike"
-version = "2.1.1"
+version = "2.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f9371b1c99cd20a11d48e60a7ca79369735d9507a4159f6da6ee7f5f40df1a8e"
+checksum = "236ba4bd5a1e01e9e7e1005e98794edd4ca9e111cdb3f83fd1096b24b468c765"
 dependencies = [
  "anyhow",
  "clap",
@@ -857,7 +857,6 @@ name = "picotest_macros"
 version = "0.1.0"
 dependencies = [
  "darling",
- "picotest_helpers",
  "proc-macro2",
  "quote",
  "rstest",

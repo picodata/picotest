@@ -2,10 +2,24 @@
 name = "picotest"
 version = "0.1.0"
 edition = "2021"
+license = "BSD-2-Clause"
+description = "Test framework for Picodata plugin"
+homepage = "https://picodata.io/"
+repository = "https://github.com/picodata/picotest"
+documentation = "https://github.com/picodata/picotest"
+keywords = ["picodata", "test"]
+categories = ["development-tools::testing"]
+readme = "README.md"
+authors = [
+    "Alexandr Sorokin <a.sorokin@picodata.io>",
+    "Boris Sinyapkin <b.sinyapkin@picodata.io>",
+    "Evgeniy Mitin <e.mitin@picodata.io>"
+]
+
 
 [dependencies]
-picotest_macros = { path = "../picotest_macros" }
-picotest_helpers = { path = "../picotest_helpers" }
+picotest_macros = { path = "../picotest_macros", version = "0.1.0" }
+picotest_helpers = { path = "../picotest_helpers", version = "0.1.0" }
 anyhow = "1.0.97"
 
 
