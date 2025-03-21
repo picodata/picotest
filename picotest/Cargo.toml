@@ -26,5 +26,5 @@ anyhow = "1.0.97"
 [dev-dependencies]
 uuid = { version = "1.16.0", features = ["v4"] }
 rstest = "0.23.0"
-constcat = "0.5.1"
+constcat = "0.6.0"
 serde_yaml = "0.9.34"
