@@ -2,7 +2,7 @@ use anyhow::Context;
 use log::{debug, info, warn};
 use pike::cluster::{PicodataInstance, RunParamsBuilder, StopParamsBuilder, Topology};
 use pike::config::{ApplyParamsBuilder, PluginConfigMap};
-use rand::distributions::Alphanumeric;
+use rand::distr::Alphanumeric;
 use rand::Rng;
 use std::ffi::OsStr;
 use std::fs;
@@ -249,7 +249,7 @@ where
 }
 
 pub fn tmp_dir() -> String {
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     format!(
         "tmp/tests/{}",
         (0..8)
