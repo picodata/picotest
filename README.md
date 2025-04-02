@@ -98,7 +98,7 @@ mod test_mod {
 
 | Attribute | Description | Default |
 |-----------|-------------|---------|
-| `path`    | путь до директории плагина | Current directory |
+| `path`    | Путь до директории, содержащей файл топологии плагина ([topology.toml](https://github.com/picodata/pike?tab=readme-ov-file#topologytoml)) | Определяется автоматически |
 | `timeout` | Таймаут перед запуском первого теста (seconds) | 5 |
 
 # Управление кластером в Picotest
@@ -110,7 +110,8 @@ Picotest обеспечивает полную изоляцию тестовых
 ### Архитектура тестирования
 
 ```bash
-my_plugin/
+my_pike_plugin/
+├── topology.toml    # Файл топологии плагина
 ├── src/
 │   └── lib.rs       # Основной код
 └── tests/

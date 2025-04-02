@@ -1,7 +1,8 @@
+use quote::quote;
 use syn::{parse_quote, Attribute, FnArg, ItemFn, Stmt};
 const TEST_PREFIX: &str = "test_";
 
-pub fn process_test_function(mut func: ItemFn, path: &String, timeout: u64) -> ItemFn {
+pub fn process_test_function(mut func: ItemFn, path: &Option<String>, timeout: u64) -> ItemFn {
     let func_name = func.sig.ident.to_string();
     if !func_name.starts_with(TEST_PREFIX) {
         return func;
@@ -9,6 +10,11 @@ pub fn process_test_function(mut func: ItemFn, path: &String, timeout: u64) -> I
 
     let rstest_macro: Attribute = parse_quote! { #[rstest] };
     func.attrs.insert(0, rstest_macro);
+
+    let path = match path {
+        Some(cfg_path) => quote! { Some(#cfg_path) },
+        None => quote! { None },
+    };
 
     let cluster: FnArg = parse_quote! {
         #[with(#path, #timeout)] cluster: &Cluster
