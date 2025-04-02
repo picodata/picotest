@@ -6,16 +6,12 @@ use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use syn::{parse_macro_input, parse_quote, Item};
 
-fn plugin_path_default() -> String {
-    ".".to_string()
-}
 fn plugin_timeout_secs_default() -> u64 {
     5
 }
 #[derive(Debug, FromMeta)]
 struct PluginCfg {
-    #[darling(default = "plugin_path_default")]
-    path: String,
+    path: Option<String>,
     #[darling(default = "plugin_timeout_secs_default")]
     timeout: u64,
 }
@@ -97,8 +93,7 @@ pub fn picotest_unit(_: TokenStream, tokens: TokenStream) -> TokenStream {
                 fn #test_runner_ident() {
                     use picotest::internal;
 
-                    let plugin_path = std::env::current_dir()
-                        .expect("Failed to obtain current directory");
+                    let plugin_path = internal::plugin_root_dir();
                     let plugin_dylib_path =
                         internal::plugin_dylib_path(&plugin_path);
 
@@ -106,7 +101,7 @@ pub fn picotest_unit(_: TokenStream, tokens: TokenStream) -> TokenStream {
                         internal::lua_ffi_call_unit_test(
                             #test_fn_name, plugin_dylib_path.to_str().unwrap());
 
-                    let cluster = picotest::cluster(plugin_path.to_str().unwrap(), 0);
+                    let cluster = picotest::cluster(plugin_path.to_str().unwrap().into(), 0);
                     let output = cluster.run_query(call_test_fn_query)
                         .expect("Failed to execute query");
 

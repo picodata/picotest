@@ -3,7 +3,7 @@ use constcat::concat;
 use picotest_helpers::run_pike;
 use rstest::fixture;
 use std::fs;
-use std::io::{BufRead, BufReader, Error, Read};
+use std::io::{BufRead, BufReader, Error, Read, Write};
 use std::path::PathBuf;
 use std::process::{Child, Command, ExitStatus, Stdio};
 use std::time::Duration;
@@ -15,6 +15,13 @@ const PLUGIN_DIR: &str = concat!(TMP_DIR, PLUGIN_NAME);
 const PLUGIN_SERVICE_NAME: &str = "main";
 const PROCESS_WAIT_TIMEOUT: Duration = Duration::from_secs(10);
 const TESTS_EXECUTION_TIMELIMIT: Duration = Duration::from_secs(1200);
+
+#[macro_export]
+macro_rules! asset {
+    ($filename:expr) => {
+        concat!("./tests/assets/", $filename)
+    };
+}
 
 /// Create new or return existing test plugin instance.
 #[fixture]
@@ -47,20 +54,27 @@ pub fn create_test_plugin(remove_if_exists: bool) -> TestPlugin {
 
     fs::create_dir_all(TMP_DIR).expect("Failed to create directory for pike plugin");
 
-    let _ = wait_for_process_termination(
-        run_pike(vec!["plugin", "new", PLUGIN_NAME], TMP_DIR)
-            .expect("Failed to generate plugin boilerplate code"),
-        PROCESS_WAIT_TIMEOUT,
-    );
+    let pike_process = run_pike(
+        vec!["plugin", "new", PLUGIN_NAME, "--workspace", "--without-git"],
+        TMP_DIR,
+    )
+    .expect("Failed to generate plugin boilerplate code");
+
+    let _ = wait_for_process_termination(pike_process, PROCESS_WAIT_TIMEOUT);
 
     assert!(fs::metadata(concat!(PLUGIN_DIR, "/Cargo.toml")).is_ok());
     assert!(fs::metadata(concat!(PLUGIN_DIR, "/topology.toml")).is_ok());
 
-    // Add picotest to the test plugin dependencies.
-    // This is mandatory for running tests of #[picotest_unit] macro.
-    {
-        let process = add_package_to_test_plugin(env!("CARGO_MANIFEST_DIR"), PLUGIN_DIR)
-            .expect("Failed to add picotest to test plugin dependencies");
+    // Add necessary crates to the test plugin dependencies.
+    // This is mandatory for running tests of macros inside plugin workspace.
+    let crates_to_add = [
+        CargoCrate::Path(env!("CARGO_MANIFEST_DIR")),
+        CargoCrate::Name("rstest"),
+    ];
+    for cr in crates_to_add {
+        let process = add_crate_to_test_plugin(&cr, PLUGIN_DIR).unwrap_or_else(|e| {
+            panic!("Failed to add crate '{cr:?}' to test plugin dependencies: {e}")
+        });
         let exit_status = wait_for_process_termination(process, PROCESS_WAIT_TIMEOUT);
         assert!(exit_status.success());
     }
@@ -69,6 +83,49 @@ pub fn create_test_plugin(remove_if_exists: bool) -> TestPlugin {
         name: PLUGIN_NAME.parse().unwrap(),
         path: PathBuf::from(PLUGIN_DIR),
         service_name: PLUGIN_SERVICE_NAME.parse().unwrap(),
+    }
+}
+
+/// Copies *.rs file to test plugin `src/` directory and adds module to lib.rs.
+///
+/// ### Arguments:
+/// * `plugin` - instance of `TestPlugin`
+/// * `source_path` - path to *.rs file. Module will be extracted from filename.
+///
+pub fn add_source_file_to_plugin(plugin: &TestPlugin, source_path: PathBuf) {
+    assert!(source_path.exists(), "source file should exist");
+    assert_eq!(source_path.extension().unwrap(), "rs");
+
+    let plugin_sources = plugin.path.join(&plugin.name).join("src");
+    let source_filename = source_path.file_name().unwrap();
+
+    let module_name = source_filename
+        .to_str()
+        .expect("Failed to convert filename to string")
+        .split(".rs")
+        .next()
+        .expect("Failed to extract Rust module name from source file");
+
+    // Copy *.rs source file to plugin directory.
+    fs::copy(&source_path, plugin_sources.join(source_filename))
+        .expect("Failed to copy test file to plugin directory");
+
+    // Add module to plugin library.
+    // This is necessary to run tests using "cargo test".
+    {
+        let lib_rs_path = plugin_sources.join("lib.rs");
+        let mut lib_rs = fs::OpenOptions::new()
+            .append(true)
+            .open(&lib_rs_path)
+            .unwrap_or_else(|e| panic!("Failed to open '{}': {e}", lib_rs_path.display()));
+
+        writeln!(lib_rs, "\nmod {};", module_name).unwrap_or_else(|e| {
+            panic!(
+                "Failed to add module '{}' to '{}': {e}",
+                module_name,
+                lib_rs_path.display()
+            )
+        });
     }
 }
 
@@ -228,18 +285,28 @@ fn wait_for_process_termination(mut child: Child, timeout: Duration) -> ExitStat
     })
 }
 
+#[derive(Debug)]
+enum CargoCrate {
+    /// Path on the filesystem
+    Path(&'static str),
+    /// Name of the package on crates.io
+    Name(&'static str),
+}
+
 /// Adds package to test plugin dependencies through "cargo add" command.
 ///
 /// ### Arguments
-///     - `manifest_dir` - the directory containing the manifest of adding package.
+///     - `cc` - instance of `CargoCrate`.
 ///     - `test_plugin` - descriptor of test plugin.
 ///
-fn add_package_to_test_plugin(manifest_dir: &str, plugin_path: &str) -> Result<Child, Error> {
-    Command::new("cargo")
-        .arg("add")
-        .arg("--quiet")
-        .arg("--path")
-        .arg(manifest_dir)
-        .current_dir(plugin_path)
-        .spawn()
+fn add_crate_to_test_plugin(cc: &CargoCrate, plugin_path: &str) -> Result<Child, Error> {
+    let mut cmd = Command::new("cargo");
+    let cmd = cmd.arg("add").arg("--quiet");
+
+    let cmd = match cc {
+        CargoCrate::Path(path) => cmd.arg("--path").arg(path),
+        CargoCrate::Name(name) => cmd.arg(name),
+    };
+
+    cmd.current_dir(plugin_path).spawn()
 }
