@@ -7,16 +7,12 @@ use quote::{format_ident, quote};
 use syn::{parse_macro_input, parse_quote, Attribute, Item, Stmt};
 use utils::traverse_use_item;
 
-fn plugin_path_default() -> String {
-    ".".to_string()
-}
 fn plugin_timeout_secs_default() -> u64 {
     5
 }
 #[derive(Debug, FromMeta)]
 struct PluginCfg {
-    #[darling(default = "plugin_path_default")]
-    path: String,
+    path: Option<String>,
     #[darling(default = "plugin_timeout_secs_default")]
     timeout: u64,
 }
@@ -39,7 +35,18 @@ pub fn picotest(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     };
 
-    let path = cfg.path;
+    // Use plugin root directory from config if specified.
+    // Otherwise, embed code that finds it automatically.
+    let path = match cfg.path {
+        Some(cfg_root_dir) => quote! {
+            #cfg_root_dir
+        },
+        None => quote! {
+            picotest::internal::plugin_root_dir()
+                .to_str()
+                .expect("Failed to parse plugin root directory as UTF-8 string")
+        },
+    };
     let timeout_secs = cfg.timeout;
 
     let run_cluster_call = quote! {
@@ -215,8 +222,7 @@ pub fn picotest_unit(_: TokenStream, tokens: TokenStream) -> TokenStream {
                 fn #test_runner_ident() {
                     use picotest::internal;
 
-                    let plugin_path = std::env::current_dir()
-                        .expect("Failed to obtain current directory");
+                    let plugin_path = internal::plugin_root_dir();
                     let plugin_dylib_path =
                         internal::plugin_dylib_path(&plugin_path);
 
