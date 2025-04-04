@@ -24,6 +24,7 @@ anyhow = "1.0.97"
 
 
 [dev-dependencies]
+wait-timeout = "0.2.1"
 uuid = { version = "1.16.0", features = ["v4"] }
 rstest = "0.25.0"
 constcat = "0.6.0"
