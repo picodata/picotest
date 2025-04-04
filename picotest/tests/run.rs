@@ -2,7 +2,6 @@ mod helpers;
 
 use helpers::{plugin, TestPlugin};
 use picotest::*;
-use rstest::*;
 use std::collections::HashMap;
 
 #[picotest(path = "../tmp/test_plugin")]

@@ -72,13 +72,6 @@ pub fn picotest(attr: TokenStream, item: TokenStream) -> TokenStream {
                 });
             };
 
-            let stop_cluster: Stmt = parse_quote! {
-                if TESTS_COUNT.fetch_sub(1, Ordering::SeqCst) == 1 {
-                    let mut cluster = CLUSTER.get().unwrap();
-                    cluster.stop().expect("Failed to stop the cluster");
-                    drop(cluster);
-                }
-            };
             let resume: Stmt = parse_quote! {
                 if let Err(err) = result {
                     panic::resume_unwind(err);
@@ -89,14 +82,12 @@ pub fn picotest(attr: TokenStream, item: TokenStream) -> TokenStream {
             let mut use_atomic_usize: bool = false;
             let mut use_atomic_ordering: bool = false;
             let mut use_panic: bool = false;
-            let mut test_count: usize = 0;
             let mut e: Vec<Item> = items
                 .into_iter()
                 .map(|t| match t {
                     Item::Fn(mut func) => {
                         let func_name = &func.sig.ident;
                         if func_name.to_string().starts_with("test_") {
-                            test_count += 1;
                             func.attrs.push(rstest_macro.clone());
                             let block = func.block.clone();
                             let body: Stmt = parse_quote! {
@@ -112,12 +103,7 @@ pub fn picotest(attr: TokenStream, item: TokenStream) -> TokenStream {
                                 }));
                             };
 
-                            func.block.stmts = vec![
-                                run_cluster.clone(),
-                                body,
-                                stop_cluster.clone(),
-                                resume.clone(),
-                            ];
+                            func.block.stmts = vec![run_cluster.clone(), body, resume.clone()];
                             Item::Fn(func)
                         } else {
                             Item::Fn(func)
@@ -154,14 +140,9 @@ pub fn picotest(attr: TokenStream, item: TokenStream) -> TokenStream {
                 })
                 .collect();
 
-            let mut use_content = vec![
-                parse_quote!(
-                    use picotest::Cluster;
-                ),
-                parse_quote!(
-                    use rstest::*;
-                ),
-            ];
+            let mut use_content = vec![parse_quote!(
+                use picotest::*;
+            )];
             if !has_once_lock {
                 use_content.push(parse_quote!(
                     use std::sync::OnceLock;
@@ -188,10 +169,17 @@ pub fn picotest(attr: TokenStream, item: TokenStream) -> TokenStream {
             use_content.push(parse_quote!(
                 static CLUSTER: OnceLock<Cluster> = OnceLock::new();
             ));
-            use_content.push(parse_quote!(
-                static TESTS_COUNT: AtomicUsize = AtomicUsize::new(#test_count);
-            ));
             use_content.append(&mut e);
+
+            let mut tear_down_fn = vec![parse_quote! {
+                #[ctor::dtor]
+                fn tear_down() {
+                    if let Some(cluster) = CLUSTER.get() {
+                        cluster.stop();
+                    }
+                }
+            }];
+            use_content.append(&mut tear_down_fn);
 
             m.content = Some((brace, use_content));
             Item::Mod(m)
