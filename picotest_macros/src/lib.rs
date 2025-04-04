@@ -57,7 +57,7 @@ pub fn picotest(attr: TokenStream, item: TokenStream) -> TokenStream {
                 let mut cluster = #(#run_cluster_call)*;
             };
 
-            func.attrs.push(rstest_macro.clone());
+            func.attrs.insert(0, rstest_macro.clone());
             let mut stmts = vec![run_cluster];
             stmts.append(&mut func.block.stmts);
             func.block.stmts = stmts;
@@ -88,7 +88,7 @@ pub fn picotest(attr: TokenStream, item: TokenStream) -> TokenStream {
                     Item::Fn(mut func) => {
                         let func_name = &func.sig.ident;
                         if func_name.to_string().starts_with("test_") {
-                            func.attrs.push(rstest_macro.clone());
+                            func.attrs.insert(0, rstest_macro.clone());
                             let block = func.block.clone();
                             let body: Stmt = parse_quote! {
                                 let result = panic::catch_unwind(

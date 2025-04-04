@@ -70,6 +70,12 @@ mod test_mod {
         assert!(enabled.is_ok());
         assert!(enabled.is_ok_and(|enabled| enabled.contains("true")));
     }
+
+    #[case(1, 1)]
+    #[case(2, 2)]
+    fn test_with_once(_plugin: &TestPlugin, #[case] input: u32, #[case] output: u32) {
+        assert_eq!(input, output)
+    }
 }
 
 mod picotest_unit_macro {
