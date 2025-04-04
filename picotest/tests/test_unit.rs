@@ -1,47 +1,40 @@
 mod helpers;
 
 use constcat::concat;
-use helpers::{fresh_plugin, TestPlugin};
+use helpers::{fresh_plugin, run_cargo_test_in_plugin_workspace, LineMatcher, TestPlugin};
 use rstest::rstest;
 use std::io::Write;
-use std::process::ExitStatus;
-use std::time::Duration;
 use std::{fs, path::PathBuf};
 
 const TEST_SOURCE_MODULE_NAME: &str = "picotest_unit_macro_tests";
 const TEST_SOURCE_FILE_PATH: &str = concat!("./tests/assets/", TEST_SOURCE_MODULE_NAME, ".rs");
-const TESTS_EXECUTION_TIMELIMIT: Duration = Duration::from_secs(1200);
-
-fn run_cargo_test(plugin_path: &PathBuf, module_name: &str) -> (ExitStatus, String) {
-    helpers::run_cargo_test(
-        plugin_path,
-        &["--test", module_name, "--nocapture", "--test-threads=1"],
-        TESTS_EXECUTION_TIMELIMIT,
-    )
-}
 
 // Run tests that's supposed to finish with success.
 fn assert_success_tests(plugin_path: &PathBuf) {
     let module_name = concat!(TEST_SOURCE_MODULE_NAME, "::should_success");
-    let (exit_status, stdout) = run_cargo_test(plugin_path, module_name);
+    let mut line_matcher = LineMatcher::new("Hello from test_should_success");
+    let exit_status =
+        run_cargo_test_in_plugin_workspace(plugin_path, module_name, &mut line_matcher);
 
     assert!(
         exit_status.success(),
         "tests are supposed to finish successfully"
     );
-    assert!(stdout.contains("Hello from test_should_success"));
+    assert!(line_matcher.has_matched());
 }
 
 // Run tests that's supposed to finish with failure.
 fn assert_failed_tests(plugin_path: &PathBuf) {
     let module_name = concat!(TEST_SOURCE_MODULE_NAME, "::should_fail");
-    let (exit_status, stdout) = run_cargo_test(plugin_path, module_name);
+    let mut line_matcher = LineMatcher::new("Hello from test_should_fail");
+    let exit_status =
+        run_cargo_test_in_plugin_workspace(plugin_path, module_name, &mut line_matcher);
 
     assert!(
         !exit_status.success(),
         "tests are supposed to finish with failure"
     );
-    assert!(stdout.contains("Hello from test_should_fail"));
+    assert!(line_matcher.has_matched());
 }
 
 #[rstest]
