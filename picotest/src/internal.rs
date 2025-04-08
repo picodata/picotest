@@ -6,6 +6,7 @@
 use anyhow::bail;
 use std::{
     env,
+    ffi::OsStr,
     path::{Path, PathBuf},
 };
 
@@ -15,8 +16,11 @@ const LIB_EXT: &str = "so";
 #[cfg(target_os = "macos")]
 const LIB_EXT: &str = "dylib";
 
+const PLUGIN_TOPOLOGY_FILENAME: &str = "topology.toml";
+
 fn plugin_dylib_filename() -> String {
-    let package_name = env::var("CARGO_PKG_NAME").unwrap();
+    let plugin_root_dir = plugin_root_dir();
+    let package_name = plugin_root_dir.file_name().and_then(OsStr::to_str).unwrap();
     format!("lib{}.{LIB_EXT}", package_name.replace('-', "_"))
 }
 
@@ -27,6 +31,50 @@ pub fn plugin_dylib_path(plugin_path: &Path) -> PathBuf {
         .join("target")
         .join("debug")
         .join(plugin_dylib_filename())
+}
+
+/// Returns root directory of the plugin.
+///
+/// Panics if it was not found.
+///
+/// Basically, it looks for topology.toml file and then
+/// returns its parent directory.
+pub fn plugin_root_dir() -> PathBuf {
+    let plugin_topology_path = find_plugin_topology_path()
+        .expect("Error occurred while searching for plugin topology configuration")
+        .expect("Plugin topology configuration is not found");
+
+    let plugin_root_dir = plugin_topology_path
+        .parent()
+        .expect("Failed to obtain parent directory of plugin topology file");
+
+    assert!(
+        plugin_root_dir.join("Cargo.toml").exists(),
+        "broken plugin directory?"
+    );
+
+    plugin_root_dir.to_path_buf()
+}
+
+/// Finds path to the plugin topology file.
+///
+/// ### Returns
+/// * On success, `Some(path)`, where path is pointing to topology configuration,
+///   or `None` if topology configuration was not found.
+///
+/// * On failure, instance of [`anyhow::Error`] describing occurred failure.
+pub fn find_plugin_topology_path() -> anyhow::Result<Option<PathBuf>> {
+    let manifest_dir: PathBuf = env::var("CARGO_MANIFEST_DIR")?.into();
+
+    for path in manifest_dir.ancestors() {
+        let topology_path = path.join(PLUGIN_TOPOLOGY_FILENAME);
+
+        if topology_path.exists() {
+            return Ok(Some(topology_path));
+        }
+    }
+
+    Ok(None)
 }
 
 /// Creates Lua script that does FFI call of provided target function taken
