@@ -14,11 +14,12 @@
 cargo install picodata-pike
 ```
 
-- Добавить зависимости `picotest` и [`rstest`](https://github.com/la10736/rstest) в `Cargo.toml` плагина:
+- Добавить зависимости в `Cargo.toml` плагина:
 
 ```bash
-cargo add picotest --git https://github.com/picodata/picotest.git
+cargo add picotest
 cargo add rstest
+cargo add ctor
 ```
 
 ## Совместимость с Picodata
