@@ -22,5 +22,5 @@ log = "0.4.27"
 rand = "0.9.0"
 uuid = { version = "1.16.0", features = ["v4"] }
 picodata-pike = { version = "2.2.2" }
-anyhow = "1.0.96"
+anyhow = "1.0.98"
 toml = "0.8.20"

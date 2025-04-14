@@ -20,7 +20,7 @@ authors = [
 [dependencies]
 picotest_macros = { path = "../picotest_macros", version = "1.0.0" }
 picotest_helpers = { path = "../picotest_helpers", version = "1.0.0" }
-anyhow = "1.0.97"
+anyhow = "1.0.98"
 ctor = "0.4.1"
 rstest = "0.25.0"
 
