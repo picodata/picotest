@@ -19,6 +19,17 @@ use uuid::Uuid;
 const SOCKET_PATH: &str = "cluster/i1/admin.sock";
 const TOPOLOGY_FILENAME: &str = "topology.toml";
 
+pub fn tmp_dir() -> PathBuf {
+    let mut rng = rand::rng();
+    PathBuf::from(format!(
+        "tmp/tests/{}",
+        (0..8)
+            .map(|_| rng.sample(Alphanumeric))
+            .map(char::from)
+            .collect::<String>()
+    ))
+}
+
 fn parse_topology(path: &PathBuf) -> anyhow::Result<Topology> {
     toml::from_str(
         &fs::read_to_string(path).context(format!("Failed to read file '{}'", path.display()))?,
@@ -48,8 +59,8 @@ impl Drop for Cluster {
 }
 
 impl Cluster {
-    pub fn new(plugin_path: &str, data_dir: &str, timeout: Duration) -> anyhow::Result<Self> {
-        let data_dir = PathBuf::from(data_dir);
+    pub fn new(plugin_path: &str, timeout: Duration) -> anyhow::Result<Self> {
+        let data_dir = tmp_dir();
         let plugin_path = PathBuf::from(plugin_path);
         let socket_path = plugin_path.join(&data_dir).join(SOCKET_PATH);
 
@@ -229,13 +240,6 @@ impl Cluster {
     }
 }
 
-pub fn run_cluster(plugin_path: &str, timeout_secs: u64) -> anyhow::Result<Cluster> {
-    let data_dir = tmp_dir();
-    let timeout = Duration::from_secs(timeout_secs);
-    let cluster = Cluster::new(plugin_path, &data_dir, timeout)?;
-    cluster.run()
-}
-
 pub fn run_pike<A, P>(args: Vec<A>, current_dir: P) -> Result<std::process::Child, Error>
 where
     A: AsRef<OsStr>,
@@ -246,15 +250,4 @@ where
         .args(args)
         .current_dir(current_dir)
         .spawn()
-}
-
-pub fn tmp_dir() -> String {
-    let mut rng = rand::rng();
-    format!(
-        "tmp/tests/{}",
-        (0..8)
-            .map(|_| rng.sample(Alphanumeric))
-            .map(char::from)
-            .collect::<String>()
-    )
 }
