@@ -19,7 +19,6 @@ cargo install picodata-pike
 ```bash
 cargo add picotest
 cargo add rstest
-cargo add ctor
 ```
 
 ## Совместимость с Picodata
@@ -30,34 +29,12 @@ Picotest поддерживает версии Picodata, начиная с **25.
 
 Макрос `#[picotest]` используется для написания интеграционных тестов и может применяться как к функциям, так и к модулям.
 
-### Атрибуты макроса `#[picotest]`
 
-Макрос `#[picotest]` поддерживает следующие аргументы:
-
-- **path** - путь до директории плагина. Значение по умолчанию: `$(pwd)`.
-- **timeout** - длительность ожидания после развертывания кластера и перед запуском тестов.
-  Указывается в секундах. Значение по умолчанию: 0 секунд.
-
-### Использование `#[picotest]` на функциях
-
-При использовании макроса на функциях, `picotest` будет создавать кластер при каждом запуске очередного теста и удалять кластер по завершению теста.
+### Использование `#[picotest]` 
+При использовании макроса на модуле `picotest` автоматически пометит все функции модуля, названия которых начинаются с `test_`, как `rstest`-функции.
 
 ```rust
-use picotest::picotest;
-use rstest::rstest;
-
-#[picotest]
-fn test_foo_bar() {
-    assert_eq!("foo bar", "foo bar");
-}
-```
-
-### Использование `#[picotest]` на модулях
-
-При использовании макроса на модуле `picotest` автоматически пометит все функции, названия которых начинаются с `test_`, как `rstest`-функции. Кластер будет создан один раз и удален после выполнения всех тестов в модуле.
-
-```rust
-use picotest::picotest;
+use picotest::*;
 
 #[picotest]
 mod test_mod {
@@ -74,7 +51,10 @@ mod test_mod {
 
 ### Совместимость с `rstest`
 
-Макрос `#[picotest]` является оберткой над [`rstest`](https://github.com/la10736/rstest), поэтому поддерживает использование [`fixture`](https://docs.rs/rstest/latest/rstest/attr.fixture.html).
+Макрос `#[picotest]` является оберткой над [`rstest`](https://github.com/la10736/rstest), поэтому поддерживает использование: 
+[`fixture`](https://docs.rs/rstest/latest/rstest/attr.fixture.html).
+[`once`](https://docs.rs/rstest/latest/rstest/attr.fixture.html#once-fixture)
+[`case`](https://docs.rs/rstest/latest/rstest/attr.rstest.html#test-parametrized-cases)
 
 ```rust
 use picotest::picotest;
@@ -87,6 +67,7 @@ mod test_mod {
     }
 
     #[fixture]
+    #[once]
     fn bar() -> String {
         "bar".to_string()
     }
@@ -102,71 +83,50 @@ mod test_mod {
     fn test_foo_bar(foo: String, bar: String) {
         assert_ne!(foo, bar);
     }
-}
+
+    #[case(0, 0)]
+    #[case(1, 1)]
+    #[case(2, 1)]
+    #[case(3, 2)]
+    #[case(4, 3)]
+    fn test_fibonacci(#[case] input: u32, #[case] expected: u32) {
+        assert_eq!(expected, fibonacci(input))
+    }
 ```
 
-### Запуск тестов
+### Атрибуты макроса `#[picotest]`
 
-Запустите тесты с использованием переменной `RUST_TEST_THREADS=1`:
+| Attribute | Description | Default |
+|-----------|-------------|---------|
+| `path`    | путь до директории плагина | Current directory |
+| `timeout` | Таймаут перед запуском первого теста (seconds) | 5 |
 
-```sh
-RUST_TEST_THREADS=1 cargo test
+# Управление кластером в Picotest
+
+## Жизненный цикл и изоляция кластера
+
+Picotest обеспечивает полную изоляцию тестовых окружений за счет автоматического управления жизненным циклом кластера:
+
+### Архитектура тестирования
+
+```bash
+my_plugin/
+├── src/
+│   └── lib.rs       # Основной код
+└── tests/
+    ├── common/      # Вспомогательные модули (не тесты)
+    │   └── mod.rs
+    ├── integration_test1.rs
+    └── integration_test2.rs
+...
+...
+...
 ```
+### Ключевые особенности:
 
-наличие переменной `RUST_TEST_THREADS=1` необходимо только в том случае, если вы используете несколько модулей или функций с макросом `#[picotest]`.
-
-### Пользовательские хуки
-
-Picotest поддерживает работу с хуками `before_all` и `after_all`
-Для использования добавьте в свой `Cargo.toml` файл:
-
-```toml
-[dev-dependencies]
-test-env-helpers = "0.2.2"
-```
-
-Пример:
-
-```rust
-use picotest::picotest;
-use test_env_helpers::{after_all, before_all};
-
-#[picotest]
-#[before_all]
-#[after_all]
-mod test_mod {
-
-    fn before_all() {
-        todo!()
-    }
-
-    fn after_all() {
-        todo!()
-    }
-
-    #[fixture]
-    fn foo() -> String {
-        "foo".to_string()
-    }
-
-    #[fixture]
-    fn bar() -> String {
-        "bar".to_string()
-    }
-
-    fn test_foo(foo: String) {
-        assert_eq!(foo, "foo".to_string());
-    }
-
-    fn test_bar(bar: String) {
-        assert_eq!(bar, "bar".to_string());
-    }
-
-    fn test_foo_bar(foo: String, bar: String) {
-        assert_ne!(foo, bar);
-    }
-}
-```
+**Изоляция на уровне файлов**:
+- Каждый `.rs` файл в `tests/` компилируется как самостоятельный исполняемый модуль
+- Для каждого файла создается отдельный экземпляр кластера
 
 ### Создание кластера вручную
 
@@ -177,15 +137,10 @@ use rstest::rstest;
 
 #[rstest]
 fn test_without_picotest_macro() {
-    let cluster = picotest::run_cluster(".", 0);
-    assert!(cluster.is_ok());
-    assert!(cluster.is_ok_and(|cluster| cluster.path == "."));
+    let cluster = picotest::cluster(".", 0);
+    assert!(cluster.path == ".");
 }
 ```
-
-### Ограничения
-
-1. Параллельное исполнение тестов не поддерживается. Тесты должны запускаться **последовательно**, т.е. с переменной окружения `RUST_TEST_THREADS=1` ([issue #2](https://github.com/picodata/picotest/issues/2))
 
 ## Модульное тестирование
 
@@ -205,16 +160,10 @@ fn test_my_http_query() {
 
 ### Запуск тестов
 
-Тесты запускаются через интерфейс cargo test с использованием переменной `RUST_TEST_THREADS=1`:
+Тесты запускаются через интерфейс cargo test:
 
 ```sh
-RUST_TEST_THREADS=1 cargo test
-```
-
-или опцией `--test-threads=1`:
-
-```sh
-cargo test -- --test-threads=1
+cargo test
 ```
 
 ### Ограничения
@@ -254,5 +203,3 @@ mod tests {
 #[picotest_unit]
 fn test_will_ignore_should_panic_attribute() {}
 ```
-
-3. Параллельное исполнение тестов не поддерживается. Тесты должны запускаться **последовательно**, т.е. с переменной окружения `RUST_TEST_THREADS=1` ([issue #2](https://github.com/picodata/picotest/issues/2))

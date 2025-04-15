@@ -4,8 +4,7 @@ use darling::ast::NestedMeta;
 use darling::{Error, FromMeta};
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{parse_macro_input, parse_quote, Attribute, Item, Stmt};
-use utils::traverse_use_item;
+use syn::{parse_macro_input, parse_quote, Item};
 
 fn plugin_path_default() -> String {
     ".".to_string()
@@ -41,147 +40,30 @@ pub fn picotest(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let path = cfg.path;
     let timeout_secs = cfg.timeout;
-
-    let run_cluster_call = quote! {
-        picotest::run_cluster(
-            #path,
-            #timeout_secs,
-        ).expect("Failed to start the cluster")
-    }
-    .into_iter();
-
-    let rstest_macro: Attribute = parse_quote! { #[rstest] };
     let input = match input {
-        Item::Fn(mut func) => {
-            let run_cluster: Stmt = parse_quote! {
-                let mut cluster = #(#run_cluster_call)*;
-            };
-
-            func.attrs.insert(0, rstest_macro.clone());
-            let mut stmts = vec![run_cluster];
-            stmts.append(&mut func.block.stmts);
-            func.block.stmts = stmts;
-            Item::Fn(func)
-        }
+        Item::Fn(func) => Item::Fn(utils::process_test_function(func, &path, timeout_secs)),
         Item::Mod(mut m) => {
-            let (brace, items) = m.content.clone().unwrap();
-
-            let run_cluster: Stmt = parse_quote! {
-                let mut cluster = CLUSTER.get_or_init(|| {
-                    #(#run_cluster_call)*
-                });
-            };
-
-            let resume: Stmt = parse_quote! {
-                if let Err(err) = result {
-                    panic::resume_unwind(err);
-                }
-            };
-
-            let mut has_once_lock: bool = false;
-            let mut use_atomic_usize: bool = false;
-            let mut use_atomic_ordering: bool = false;
-            let mut use_panic: bool = false;
-            let mut e: Vec<Item> = items
+            let (brace, items) = m.content.unwrap();
+            let mut items: Vec<Item> = items
                 .into_iter()
-                .map(|t| match t {
-                    Item::Fn(mut func) => {
-                        let func_name = &func.sig.ident;
-                        if func_name.to_string().starts_with("test_") {
-                            func.attrs.insert(0, rstest_macro.clone());
-                            let block = func.block.clone();
-                            let body: Stmt = parse_quote! {
-                                let result = panic::catch_unwind(
-                                // Cluster carries JoinHandles's of spawned instances,
-                                // which are not unwind safe. So far explicitly wrap it
-                                // into AssertUnwindSafe to pass it though catch_unwind / resume_unwind
-                                // routines, which require objects to implement UnwindSafe trait.
-                                //
-                                // TODO: wrap cluster into Mutex or other sync wrapper.
-                                panic::AssertUnwindSafe(|| {
-                                    #block
-                                }));
-                            };
-
-                            func.block.stmts = vec![run_cluster.clone(), body, resume.clone()];
-                            Item::Fn(func)
-                        } else {
-                            Item::Fn(func)
-                        }
+                .map(|item| {
+                    if let Item::Fn(func) = item {
+                        Item::Fn(utils::process_test_function(func, &path, timeout_secs))
+                    } else {
+                        item
                     }
-                    Item::Use(use_stmt) => {
-                        if traverse_use_item(&use_stmt.tree, vec!["std", "sync", "OnceLock"])
-                            .is_some()
-                        {
-                            has_once_lock = true;
-                        }
-                        if traverse_use_item(
-                            &use_stmt.tree,
-                            vec!["std", "sync", "atomic", "AtomicUsize"],
-                        )
-                        .is_some()
-                        {
-                            use_atomic_usize = true;
-                        }
-                        if traverse_use_item(
-                            &use_stmt.tree,
-                            vec!["std", "sync", "atomic", "Ordering"],
-                        )
-                        .is_some()
-                        {
-                            use_atomic_ordering = true;
-                        }
-                        if traverse_use_item(&use_stmt.tree, vec!["std", "panic"]).is_some() {
-                            use_panic = true;
-                        }
-                        Item::Use(use_stmt)
-                    }
-                    e => e,
                 })
                 .collect();
 
-            let mut use_content = vec![parse_quote!(
+            let mut content = vec![parse_quote!(
                 use picotest::*;
             )];
-            if !has_once_lock {
-                use_content.push(parse_quote!(
-                    use std::sync::OnceLock;
-                ));
-            }
-
-            if !use_atomic_usize {
-                use_content.push(parse_quote!(
-                    use std::sync::atomic::AtomicUsize;
-                ));
-            }
-            if !use_atomic_ordering {
-                use_content.push(parse_quote!(
-                    use std::sync::atomic::Ordering;
-                ));
-            }
-
-            if !use_panic {
-                use_content.push(parse_quote!(
-                    use std::panic;
-                ));
-            }
-
-            use_content.push(parse_quote!(
-                static CLUSTER: OnceLock<Cluster> = OnceLock::new();
+            content.push(parse_quote!(
+                use std::panic;
             ));
-            use_content.append(&mut e);
+            content.append(&mut items);
 
-            let mut tear_down_fn = vec![parse_quote! {
-                #[ctor::dtor]
-                fn tear_down() {
-                    if let Some(cluster) = CLUSTER.get() {
-                        cluster.stop();
-                    }
-                }
-            }];
-            use_content.append(&mut tear_down_fn);
-
-            m.content = Some((brace, use_content));
+            m.content = Some((brace, content));
             Item::Mod(m)
         }
         _ => {
@@ -224,8 +106,7 @@ pub fn picotest_unit(_: TokenStream, tokens: TokenStream) -> TokenStream {
                         internal::lua_ffi_call_unit_test(
                             #test_fn_name, plugin_dylib_path.to_str().unwrap());
 
-                    let cluster = picotest::run_cluster(plugin_path.to_str().unwrap(), 0)
-                        .expect(concat!("Failed to spin up the cluster for running unit-test '", #test_fn_name, "'"));
+                    let cluster = picotest::cluster(plugin_path.to_str().unwrap(), 0);
                     let output = cluster.run_query(call_test_fn_query)
                         .expect("Failed to execute query");
 

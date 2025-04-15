@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use constcat::concat;
 use picotest_helpers::run_pike;
 use rstest::fixture;
