@@ -1,6 +1,6 @@
 [package]
 name = "picotest"
-version = "1.0.0"
+version = "1.1.0"
 edition = "2021"
 license = "BSD-2-Clause"
 description = "Test framework for Picodata plugin"
@@ -18,8 +18,8 @@ authors = [
 
 
 [dependencies]
-picotest_macros = { path = "../picotest_macros", version = "1.0.0" }
-picotest_helpers = { path = "../picotest_helpers", version = "1.0.0" }
+picotest_macros = { path = "../picotest_macros", version = "1.1.0" }
+picotest_helpers = { path = "../picotest_helpers", version = "1.1.0" }
 anyhow = "1.0.98"
 ctor = "0.4.1"
 rstest = "0.25.0"
