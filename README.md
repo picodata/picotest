@@ -17,8 +17,8 @@ cargo install picodata-pike
 - Добавить зависимости в `Cargo.toml` плагина:
 
 ```bash
-cargo add picotest
-cargo add rstest
+cargo add --dev picotest
+cargo add --dev rstest
 ```
 
 ## Совместимость с Picodata
