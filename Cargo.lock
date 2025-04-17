@@ -781,9 +781,9 @@ dependencies = [
 
 [[package]]
 name = "picodata-pike"
-version = "2.2.2"
+version = "2.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1935601d707d019d3709cdb9cccc9b68d7814a4352d909e74a3aec88adc08d17"
+checksum = "880116a1966f04482f2b40ba69aaa6a6ff599d66d840806fe4563fd8bf06b2ed"
 dependencies = [
  "anyhow",
  "clap",
@@ -801,6 +801,7 @@ dependencies = [
  "rand",
  "regex",
  "serde",
+ "serde_ignored",
  "serde_json",
  "serde_yaml",
  "tar",
@@ -1077,6 +1078,15 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "serde_ignored"
+version = "0.1.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "566da67d80e92e009728b3731ff0e5360cb181432b8ca73ea30bb1d170700d76"
+dependencies = [
+ "serde",
 ]
 
 [[package]]

@@ -238,6 +238,16 @@ impl Cluster {
             }
         }
     }
+
+    /// Method returns first running cluster instance
+    pub fn main(&self) -> Option<&PicodataInstance> {
+        self.instances().as_ref().and_then(|v| v.first())
+    }
+
+    /// Method returns all running instances of cluster
+    pub fn instances(&self) -> &Option<Vec<PicodataInstance>> {
+        &self.instances
+    }
 }
 
 pub fn run_pike<A, P>(args: Vec<A>, current_dir: P) -> Result<std::process::Child, Error>
