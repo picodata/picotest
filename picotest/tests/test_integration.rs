@@ -55,6 +55,15 @@ fn test_apply_config(plugin: &TestPlugin) {
 }
 
 #[picotest(path = "../tmp/test_plugin")]
+fn test_get_instances() {
+    let cluster_uuid = GLOBAL_CLUSTER_UUID.get_or_init(|| cluster.uuid);
+    assert_eq!(cluster_uuid, &cluster.uuid);
+
+    assert_eq!(cluster.instances().as_ref().unwrap().len(), 4);
+    assert_eq!(cluster.main().unwrap().pg_port(), &5433)
+}
+
+#[picotest(path = "../tmp/test_plugin")]
 #[case(1, 1)]
 #[case(2, 2)]
 #[case(3, 3)]
