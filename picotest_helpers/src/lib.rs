@@ -18,6 +18,8 @@ use uuid::Uuid;
 
 const SOCKET_PATH: &str = "cluster/i1/admin.sock";
 const TOPOLOGY_FILENAME: &str = "topology.toml";
+pub const PG_USER: &str = "Picotest";
+pub const PG_USER_PASSWORD: &str = "Pic0test";
 
 pub fn tmp_dir() -> PathBuf {
     let mut rng = rand::rng();
@@ -47,7 +49,7 @@ pub struct Cluster {
     pub timeout: Duration,
     socket_path: PathBuf,
     topology: Topology,
-    instances: Option<Vec<PicodataInstance>>,
+    instances: Vec<PicodataInstance>,
 }
 
 impl Drop for Cluster {
@@ -74,7 +76,7 @@ impl Cluster {
             timeout,
             socket_path,
             topology,
-            instances: None,
+            instances: Default::default(),
         };
 
         Ok(cluster)
@@ -119,8 +121,8 @@ impl Cluster {
             .build()?;
 
         debug!("Starting the cluster with parameters {params:?}");
-        let intances: Vec<PicodataInstance> = pike::cluster::run(&params)?;
-        self.instances.replace(intances);
+        let mut intances: Vec<PicodataInstance> = pike::cluster::run(&params)?;
+        std::mem::swap(&mut self.instances, &mut intances);
         self.wait()
     }
 
@@ -176,6 +178,8 @@ impl Cluster {
 
             picodata_admin.kill().unwrap();
             if can_connect && plugin_ready {
+                self.create_picotest_user();
+
                 thread::sleep(self.timeout);
                 return Ok(self);
             }
@@ -240,13 +244,25 @@ impl Cluster {
     }
 
     /// Method returns first running cluster instance
-    pub fn main(&self) -> Option<&PicodataInstance> {
-        self.instances().as_ref().and_then(|v| v.first())
+    pub fn main(&self) -> &PicodataInstance {
+        self.instances()
+            .first()
+            .expect("Main server failed to start")
     }
 
     /// Method returns all running instances of cluster
-    pub fn instances(&self) -> &Option<Vec<PicodataInstance>> {
+    pub fn instances(&self) -> &Vec<PicodataInstance> {
         &self.instances
+    }
+
+    fn create_picotest_user(&self) {
+        self.run_query(format!(
+            r#"CREATE USER "{}" with password '{}' using md5;"#,
+            PG_USER, PG_USER_PASSWORD
+        ))
+        .expect("Picotest user creat should not fail");
+        self.run_query(format!(r#"GRANT CREATE TABLE TO "{}""#, PG_USER))
+            .expect("Picotest user grant should not fail");
     }
 }
 
