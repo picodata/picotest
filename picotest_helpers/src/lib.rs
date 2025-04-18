@@ -18,6 +18,8 @@ use uuid::Uuid;
 
 const SOCKET_PATH: &str = "cluster/i1/admin.sock";
 const TOPOLOGY_FILENAME: &str = "topology.toml";
+pub const PG_USER: &str = "Picotest";
+pub const PG_USER_PASSWORD: &str = "Pic0test";
 
 pub fn tmp_dir() -> PathBuf {
     let mut rng = rand::rng();
@@ -176,6 +178,8 @@ impl Cluster {
 
             picodata_admin.kill().unwrap();
             if can_connect && plugin_ready {
+                self.create_picotest_user();
+
                 thread::sleep(self.timeout);
                 return Ok(self);
             }
@@ -249,6 +253,16 @@ impl Cluster {
     /// Method returns all running instances of cluster
     pub fn instances(&self) -> &Vec<PicodataInstance> {
         &self.instances
+    }
+
+    fn create_picotest_user(&self) {
+        self.run_query(format!(
+            r#"CREATE USER "{}" with password '{}' using md5;"#,
+            PG_USER, PG_USER_PASSWORD
+        ))
+        .expect("Picotest user creat should not fail");
+        self.run_query(format!(r#"GRANT CREATE TABLE TO "{}""#, PG_USER))
+            .expect("Picotest user grant should not fail");
     }
 }
 
