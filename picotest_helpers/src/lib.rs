@@ -47,7 +47,7 @@ pub struct Cluster {
     pub timeout: Duration,
     socket_path: PathBuf,
     topology: Topology,
-    instances: Option<Vec<PicodataInstance>>,
+    instances: Vec<PicodataInstance>,
 }
 
 impl Drop for Cluster {
@@ -74,7 +74,7 @@ impl Cluster {
             timeout,
             socket_path,
             topology,
-            instances: None,
+            instances: Default::default(),
         };
 
         Ok(cluster)
@@ -119,8 +119,8 @@ impl Cluster {
             .build()?;
 
         debug!("Starting the cluster with parameters {params:?}");
-        let intances: Vec<PicodataInstance> = pike::cluster::run(&params)?;
-        self.instances.replace(intances);
+        let mut intances: Vec<PicodataInstance> = pike::cluster::run(&params)?;
+        std::mem::swap(&mut self.instances, &mut intances);
         self.wait()
     }
 
@@ -240,12 +240,14 @@ impl Cluster {
     }
 
     /// Method returns first running cluster instance
-    pub fn main(&self) -> Option<&PicodataInstance> {
-        self.instances().as_ref().and_then(|v| v.first())
+    pub fn main(&self) -> &PicodataInstance {
+        self.instances()
+            .first()
+            .expect("Main server failed to start")
     }
 
     /// Method returns all running instances of cluster
-    pub fn instances(&self) -> &Option<Vec<PicodataInstance>> {
+    pub fn instances(&self) -> &Vec<PicodataInstance> {
         &self.instances
     }
 }
