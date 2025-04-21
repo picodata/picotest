@@ -1,7 +1,7 @@
 pub use std::{sync::OnceLock, time::Duration};
 
 use internal::plugin_root_dir;
-pub use picotest_helpers::Cluster;
+pub use picotest_helpers::{Cluster, PICOTEST_USER, PICOTEST_USER_PASSWORD};
 pub use picotest_macros::*;
 pub mod internal;
 pub use rstest::*;

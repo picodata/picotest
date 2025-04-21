@@ -18,8 +18,8 @@ use uuid::Uuid;
 
 const SOCKET_PATH: &str = "cluster/i1/admin.sock";
 const TOPOLOGY_FILENAME: &str = "topology.toml";
-pub const PG_USER: &str = "Picotest";
-pub const PG_USER_PASSWORD: &str = "Pic0test";
+pub const PICOTEST_USER: &str = "Picotest";
+pub const PICOTEST_USER_PASSWORD: &str = "Pic0test";
 
 pub fn tmp_dir() -> PathBuf {
     let mut rng = rand::rng();
@@ -266,10 +266,10 @@ impl Cluster {
     fn create_picotest_user(&self) {
         self.run_query(format!(
             r#"CREATE USER "{}" with password '{}' using md5;"#,
-            PG_USER, PG_USER_PASSWORD
+            PICOTEST_USER, PICOTEST_USER_PASSWORD
         ))
         .expect("Picotest user create should not fail");
-        self.run_query(format!(r#"GRANT CREATE TABLE TO "{}""#, PG_USER))
+        self.run_query(format!(r#"GRANT CREATE TABLE TO "{}""#, PICOTEST_USER))
             .expect("Picotest user grant should not fail");
     }
 }

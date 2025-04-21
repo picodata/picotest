@@ -218,7 +218,7 @@ Password: Pic0test
 Пример использования pgproto
 ```rust
 use picotest::*;
-use picotest_helpers::{PG_USER, PG_USER_PASSWORD};
+use picotest_helpers::{PICOTEST_USER, PICOTEST_USER_PASSWORD};
 use postgres::{Client, NoTls};
 
 #[derive(Debug, PartialEq, Eq)]
@@ -233,8 +233,8 @@ fn test_pg_connection() {
     let conn_string = format!(
         "host=localhost port={} user={} password={}",
         cluster.main().pg_port(),
-        PG_USER,
-        PG_USER_PASSWORD
+        PICOTEST_USER,
+        PICOTEST_USER_PASSWORD
     );
     let mut client = Client::connect(conn_string.as_str(), NoTls).unwrap();
     client
