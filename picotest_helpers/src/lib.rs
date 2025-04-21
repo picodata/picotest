@@ -18,6 +18,8 @@ use uuid::Uuid;
 
 const SOCKET_PATH: &str = "cluster/i1/admin.sock";
 const TOPOLOGY_FILENAME: &str = "topology.toml";
+pub const PG_USER: &str = "Picotest";
+pub const PG_USER_PASSWORD: &str = "Pic0test";
 
 pub fn tmp_dir() -> PathBuf {
     let mut rng = rand::rng();
@@ -120,8 +122,19 @@ impl Cluster {
 
         debug!("Starting the cluster with parameters {params:?}");
         let mut intances: Vec<PicodataInstance> = pike::cluster::run(&params)?;
+
+        debug_assert!(
+            self.instances.is_empty(),
+            "trying to replace already running cluster?"
+        );
         std::mem::swap(&mut self.instances, &mut intances);
-        self.wait()
+
+        self.wait()?;
+        self.create_picotest_user();
+        //wait user timeout
+        thread::sleep(self.timeout);
+
+        Ok(self)
     }
 
     pub fn recreate(self) -> anyhow::Result<Self> {
@@ -129,7 +142,7 @@ impl Cluster {
         self.run()
     }
 
-    fn wait(self) -> anyhow::Result<Self> {
+    fn wait(&self) -> anyhow::Result<()> {
         let timeout = Duration::from_secs(60);
         let start_time = Instant::now();
 
@@ -176,8 +189,7 @@ impl Cluster {
 
             picodata_admin.kill().unwrap();
             if can_connect && plugin_ready {
-                thread::sleep(self.timeout);
-                return Ok(self);
+                return Ok(());
             }
 
             thread::sleep(Duration::from_secs(10));
@@ -249,6 +261,16 @@ impl Cluster {
     /// Method returns all running instances of cluster
     pub fn instances(&self) -> &Vec<PicodataInstance> {
         &self.instances
+    }
+
+    fn create_picotest_user(&self) {
+        self.run_query(format!(
+            r#"CREATE USER "{}" with password '{}' using md5;"#,
+            PG_USER, PG_USER_PASSWORD
+        ))
+        .expect("Picotest user create should not fail");
+        self.run_query(format!(r#"GRANT CREATE TABLE TO "{}""#, PG_USER))
+            .expect("Picotest user grant should not fail");
     }
 }
 
