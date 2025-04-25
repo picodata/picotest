@@ -17,9 +17,13 @@ use std::{
 use uuid::Uuid;
 
 const SOCKET_PATH: &str = "cluster/i1/admin.sock";
-const TOPOLOGY_FILENAME: &str = "topology.toml";
 pub const PICOTEST_USER: &str = "Picotest";
 pub const PICOTEST_USER_PASSWORD: &str = "Pic0test";
+
+#[cfg(feature = "topology_test")]
+const TOPOLOGY_FILENAME: &str = "topology_test.toml";
+#[cfg(not(feature = "topology_test"))]
+const TOPOLOGY_FILENAME: &str = "topology.toml";
 
 pub fn tmp_dir() -> PathBuf {
     let mut rng = rand::rng();

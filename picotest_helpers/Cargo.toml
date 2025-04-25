@@ -24,3 +24,6 @@ uuid = { version = "1.16.0", features = ["v4"] }
 picodata-pike = { version = "2.3.1"}
 anyhow = "1.0.98"
 toml = "0.8.20"
+
+[features]
+topology_test = []
