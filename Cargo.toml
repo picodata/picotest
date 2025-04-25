@@ -14,3 +14,5 @@ exclude = [
 anyhow = { version = "1.0.98" }
 picodata-pike = { version = "2.4.0" }
 rstest = { version = "0.25.0"}
+serde = { version = "1.0.219" }
+rmp-serde = { version = "1.0.0" }

@@ -3,6 +3,7 @@ mod helpers;
 use ctor::ctor;
 use helpers::{plugin, TestPlugin};
 use picotest::*;
+use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, sync::OnceLock};
 use uuid::Uuid;
 
@@ -104,4 +105,39 @@ mod test_mod {
         assert!(enabled.is_ok());
         assert!(enabled.is_ok_and(|enabled| enabled.contains("true")));
     }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct User {
+    name: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ExampleResponse {
+    rpc_hello_response: String,
+}
+
+#[tokio::test]
+#[picotest(path = "../tmp/test_plugin")]
+async fn test_rpc_handle() {
+    let user_to_send = User {
+        name: "Dodo".to_string(),
+    };
+
+    let tnt_response = cluster
+        .main()
+        .execute_rpc::<User, ExampleResponse>(
+            "test_plugin",
+            "/greetings_rpc",
+            "main",
+            "0.1.0",
+            &user_to_send,
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        tnt_response.rpc_hello_response,
+        "Hello Dodo, long time no see."
+    );
 }

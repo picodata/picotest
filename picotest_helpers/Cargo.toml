@@ -13,7 +13,8 @@ readme = "README.md"
 authors = [
     "Alexandr Sorokin <a.sorokin@picodata.io>",
     "Boris Sinyapkin <b.sinyapkin@picodata.io>",
-    "Evgeniy Mitin <e.mitin@picodata.io>"
+    "Evgeniy Mitin <e.mitin@picodata.io>",
+    "Alexander Morozov <a.morozov@picodata.io>"
 ]
 
 
@@ -24,6 +25,11 @@ uuid = { version = "1.16.0", features = ["v4"] }
 picodata-pike.workspace = true
 anyhow.workspace = true
 toml = "0.8.22"
+rmpv = "1.0.0"
+rusty_tarantool = "0.3.0"
+bytes = { version = "1.10.1", features = ["serde"] }
+serde.workspace = true
+rmp-serde.workspace = true
 
 [dev-dependencies]
 rstest.workspace = true
