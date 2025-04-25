@@ -1,8 +1,17 @@
+use anyhow::{bail, Context};
+use bytes::Bytes;
 use log::{debug, info, warn};
-use pike::cluster::{PicodataInstance, RunParamsBuilder, StopParamsBuilder, Topology};
+use pike::cluster::{
+    PicodataInstance, PicodataInstanceProperties, RunParamsBuilder, StopParamsBuilder, Topology,
+};
 use pike::config::{ApplyParamsBuilder, PluginConfigMap};
 use rand::distr::Alphanumeric;
 use rand::Rng;
+use rmpv::Value;
+use rusty_tarantool::tarantool::{ClientConfig, ExecWithParamaters, TarantoolResponse};
+use serde::de::DeserializeOwned;
+use serde::Serialize;
+use std::collections::BTreeMap;
 use std::ffi::OsStr;
 use std::fs;
 use std::io::{BufRead, BufReader, Write};
@@ -20,7 +29,9 @@ pub mod topology;
 
 const SOCKET_PATH: &str = "cluster/i1/admin.sock";
 pub const PICOTEST_USER: &str = "Picotest";
+pub const PICOTEST_USER_IPROTO: &str = "PicotestBin";
 pub const PICOTEST_USER_PASSWORD: &str = "Pic0test";
+const LOCALHOST_IP: &str = "127.0.0.1";
 
 pub fn tmp_dir() -> PathBuf {
     let mut rng = rand::rng();
@@ -67,8 +78,73 @@ impl PicotestInstance {
         &self.pg_port
     }
 
+    pub fn properties(&self) -> PicodataInstanceProperties {
+        self.inner.properties()
+    }
+
     pub fn inner(&self) -> &PicodataInstance {
         &self.inner
+    }
+
+    pub async fn execute_rpc<S, G>(
+        &self,
+        plugin_name: &str,
+        path: &str,
+        service_name: &str,
+        plugin_version: &str,
+        input: &S,
+    ) -> anyhow::Result<G>
+    where
+        G: DeserializeOwned,
+        S: Serialize,
+    {
+        let bin_port = self.bin_port;
+        let client = ClientConfig::new(
+            format!("{LOCALHOST_IP}:{bin_port}"),
+            PICOTEST_USER_IPROTO,
+            PICOTEST_USER_PASSWORD,
+        )
+        .build();
+
+        let input_encoded =
+            rmp_serde::encode::to_vec_named(input).context("failed to encode input to msgpack")?;
+
+        // In beloved Picodata, the rpc request args have custom serialisation function
+        // See: https://github.com/picodata/picodata/blob/1e89dd6a4634f3a8be065fadaa522b2f37d3719c/picodata-plugin/src/transport/context.rs#L167
+
+        let mut context_map = BTreeMap::new();
+        let request_id_bytes = Uuid::new_v4().as_bytes().to_vec();
+        context_map.insert(1, Value::Ext(2, request_id_bytes));
+        context_map.insert(2, Value::String(plugin_name.into()));
+        context_map.insert(3, Value::String(service_name.into()));
+        context_map.insert(4, Value::String(plugin_version.into()));
+
+        let response: TarantoolResponse = client
+            .prepare_fn_call(".proc_rpc_dispatch")
+            .bind(path)?
+            .bind(Bytes::copy_from_slice(&input_encoded))?
+            .bind_ref(&context_map)?
+            .execute()
+            .await
+            .context("Rpc calls should not fail")?;
+
+        if response.code != 0 {
+            bail!("Rpc calls should not fail");
+        }
+
+        // RustyTarantool library uses binary protocol, thus the return value from RPC is
+        // encoded to MsgPack twice. First layer is an array of binary data.
+        let response: Vec<rmpv::Value> = rmp_serde::from_slice(response.data.as_ref())
+            .context("Failed to deserialise rpc response")?;
+        let Value::Binary(response_bin) = &response[0] else {
+            bail!("Expected to recieve binary input")
+        };
+
+        // Second layer is the struct itself
+        let response_decoded: G =
+            rmp_serde::from_slice(response_bin).context("Failed to deserialise rpc response")?;
+
+        Ok(response_decoded)
     }
 }
 
@@ -162,7 +238,7 @@ impl Cluster {
         std::mem::swap(&mut self.instances, &mut intances);
 
         self.wait()?;
-        self.create_picotest_user();
+        self.create_picotest_users();
         //wait user timeout
         thread::sleep(self.timeout);
 
@@ -295,13 +371,22 @@ impl Cluster {
         &self.instances
     }
 
-    fn create_picotest_user(&self) {
+    // Create two users for pgproto and iproto with different password encryption
+    fn create_picotest_users(&self) {
         self.run_query(format!(
-            r#"CREATE USER "{}" with password '{}' using md5;"#,
-            PICOTEST_USER, PICOTEST_USER_PASSWORD
+            r#"CREATE USER "{PICOTEST_USER}" with password '{PICOTEST_USER_PASSWORD}' using md5;"#
         ))
         .expect("Picotest user create should not fail");
-        self.run_query(format!(r#"GRANT CREATE TABLE TO "{}""#, PICOTEST_USER))
+
+        self.run_query(format!(r#"GRANT CREATE TABLE TO "{PICOTEST_USER}""#))
+            .expect("Picotest user grant should not fail");
+
+        self.run_query(format!(
+            r#"CREATE USER "{PICOTEST_USER_IPROTO}" with password '{PICOTEST_USER_PASSWORD}' using chap-sha1;"#
+        ))
+        .expect("Picotest user create should not fail");
+
+        self.run_query(format!(r#"GRANT CREATE TABLE TO "{PICOTEST_USER_IPROTO}""#))
             .expect("Picotest user grant should not fail");
     }
 }

@@ -13,7 +13,8 @@ readme = "README.md"
 authors = [
     "Alexandr Sorokin <a.sorokin@picodata.io>",
     "Boris Sinyapkin <b.sinyapkin@picodata.io>",
-    "Evgeniy Mitin <e.mitin@picodata.io>"
+    "Evgeniy Mitin <e.mitin@picodata.io>",
+    "Alexander Morozov <a.morozov@picodata.io>"
 ]
 
 
@@ -25,6 +26,9 @@ ctor = "0.4.2"
 rstest.workspace = true
 
 [dev-dependencies]
+serde.workspace = true
+rmp-serde.workspace = true
+tokio = "1.29.1"
 wait-timeout = "0.2.1"
 uuid = { version = "1.16.0", features = ["v4"] }
 constcat = "0.6.0"

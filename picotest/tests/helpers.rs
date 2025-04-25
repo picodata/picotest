@@ -65,12 +65,22 @@ pub fn create_test_plugin(remove_if_exists: bool) -> TestPlugin {
     assert!(fs::metadata(concat!(PLUGIN_DIR, "/Cargo.toml")).is_ok());
     assert!(fs::metadata(concat!(PLUGIN_DIR, "/topology.toml")).is_ok());
 
+    // Delete picotest dev dependency from plugin Cargo.toml
+    // This is done to avoid version conflict of picotest
+    let picotest_crate = CargoCrate::Name("picotest");
+    let process = delete_crate_from_dev(&picotest_crate, PLUGIN_DIR).unwrap_or_else(|e| {
+        panic!("Failed to delete crate '{picotest_crate:?}' from plugin template: {e}")
+    });
+    // ignore exit status in case there is no picotest dependency in plugin template
+    let _ = wait_for_process_termination(process, PROCESS_WAIT_TIMEOUT);
+
     // Add necessary crates to the test plugin dependencies.
     // This is mandatory for running tests of macros inside plugin workspace.
     let crates_to_add = [
         CargoCrate::Path(env!("CARGO_MANIFEST_DIR")),
         CargoCrate::Name("rstest"),
     ];
+
     for cr in crates_to_add {
         let process = add_crate_to_test_plugin(&cr, PLUGIN_DIR).unwrap_or_else(|e| {
             panic!("Failed to add crate '{cr:?}' to test plugin dependencies: {e}")
@@ -302,6 +312,18 @@ enum CargoCrate {
 fn add_crate_to_test_plugin(cc: &CargoCrate, plugin_path: &str) -> Result<Child, Error> {
     let mut cmd = Command::new("cargo");
     let cmd = cmd.arg("add").arg("--quiet");
+
+    let cmd = match cc {
+        CargoCrate::Path(path) => cmd.arg("--path").arg(path),
+        CargoCrate::Name(name) => cmd.arg(name),
+    };
+
+    cmd.current_dir(plugin_path).spawn()
+}
+
+fn delete_crate_from_dev(cc: &CargoCrate, plugin_path: &str) -> Result<Child, Error> {
+    let mut cmd = Command::new("cargo");
+    let cmd = cmd.arg("remove").arg("--quiet").arg("--dev");
 
     let cmd = match cc {
         CargoCrate::Path(path) => cmd.arg("--path").arg(path),

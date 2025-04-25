@@ -282,3 +282,56 @@ fn test_pg_connection() {
     assert_eq!(&user, pg_user);
 }
 ```
+
+## Тестирование RPC ручек плагина
+
+Для тестирования RPC ручек плагинов, предлагается использовать функцию `PicotestInstance::execute_rpc`, вызванную на конкретном инстансе, на котором задан RPC endpoint.
+
+Аргументы функции:
+ - plugin_name - имя плагина
+ - path - имя эндпоинта, например ```/test```
+ - service_name - имя сервиса, например ```main```
+ - plugin_version - версия плагина, например ```0.1.0```
+ - input - тело запроса, например структура ```User { ... }```
+
+Тип тела запроса и возвращаемого значения определяется через шаблонные параметры.
+
+Для тестов необходим асинхронный рантайм, поэтому необходимо указать макрос ```#[tokio::test]``` и добавить к самому тесту модификатор ```async```.
+
+Пример теста:
+```rust
+#[derive(Serialize, Deserialize, Debug)]
+pub struct User {
+    name: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ExampleResponse {
+    rpc_hello_response: String,
+}
+
+#[tokio::test]
+#[picotest(path = "../tmp/test_plugin")]
+async fn test_rpc_handle() {
+    let user_to_send = User {
+        name: "Dodo".to_string(),
+    };
+
+    let tnt_response = cluster
+        .main()
+        .execute_rpc::<User, ExampleResponse>(
+            "test_plugin",
+            "/greetings_rpc",
+            "main",
+            "0.1.0",
+            &user_to_send,
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(
+        tnt_response.rpc_hello_response,
+        "Hello Dodo, long time no see."
+    );
+}
+```
