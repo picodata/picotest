@@ -60,7 +60,7 @@ fn test_get_instances() {
     assert_eq!(cluster_uuid, &cluster.uuid);
 
     assert_eq!(cluster.instances().len(), 4);
-    assert_eq!(cluster.main().pg_port(), &5433)
+    assert_eq!(cluster.main().properties().pg_port, &5433)
 }
 
 #[picotest(path = "../tmp/test_plugin")]

@@ -21,14 +21,14 @@ fn init_plugin() {
 #[picotest(path = "../tmp/test_plugin")]
 fn test_get_instances() {
     assert_eq!(cluster.instances().len(), 4);
-    assert_eq!(cluster.main().pg_port(), &5433)
+    assert_eq!(cluster.main().properties().pg_port, &5433)
 }
 
 #[picotest(path = "../tmp/test_plugin")]
 fn test_pg_connection() {
     let conn_string = format!(
         "host=localhost port={} user={} password={}",
-        cluster.main().pg_port(),
+        cluster.main().properties().pg_port,
         PICOTEST_USER,
         PICOTEST_USER_PASSWORD
     );
