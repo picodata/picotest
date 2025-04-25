@@ -42,6 +42,45 @@ fn parse_topology(path: &PathBuf) -> anyhow::Result<Topology> {
     ))
 }
 
+pub struct PicotestInstance {
+    inner: PicodataInstance,
+    pub bin_port: u16,
+    pub pg_port: u16,
+    pub http_port: u16,
+    pub instance_name: String,
+    pub tier: String,
+    pub instance_id: u16,
+}
+
+impl From<PicodataInstance> for PicotestInstance {
+    fn from(instance: PicodataInstance) -> Self {
+        let properties = instance.properties();
+        PicotestInstance {
+            bin_port: *properties.bin_port,
+            pg_port: *properties.pg_port,
+            http_port: *properties.http_port,
+            instance_name: properties.instance_name.to_string(),
+            tier: properties.tier.to_string(),
+            instance_id: *properties.instance_id,
+            inner: instance,
+        }
+    }
+}
+
+impl PicotestInstance {
+    #[deprecated(
+        since = "1.2.2",
+        note = "You can access the field directly with .pg_port"
+    )]
+    pub fn pg_port(&self) -> &u16 {
+        &self.pg_port
+    }
+
+    pub fn inner(&self) -> &PicodataInstance {
+        &self.inner
+    }
+}
+
 pub struct Cluster {
     pub uuid: Uuid,
     pub plugin_path: PathBuf,
@@ -49,7 +88,7 @@ pub struct Cluster {
     pub timeout: Duration,
     socket_path: PathBuf,
     topology: Topology,
-    instances: Vec<PicodataInstance>,
+    instances: Vec<PicotestInstance>,
 }
 
 impl Drop for Cluster {
@@ -121,7 +160,10 @@ impl Cluster {
             .build()?;
 
         debug!("Starting the cluster with parameters {params:?}");
-        let mut intances: Vec<PicodataInstance> = pike::cluster::run(&params)?;
+        let mut intances: Vec<PicotestInstance> = pike::cluster::run(&params)?
+            .into_iter()
+            .map(PicotestInstance::from)
+            .collect();
 
         debug_assert!(
             self.instances.is_empty(),
@@ -252,14 +294,14 @@ impl Cluster {
     }
 
     /// Method returns first running cluster instance
-    pub fn main(&self) -> &PicodataInstance {
+    pub fn main(&self) -> &PicotestInstance {
         self.instances()
             .first()
             .expect("Main server failed to start")
     }
 
     /// Method returns all running instances of cluster
-    pub fn instances(&self) -> &Vec<PicodataInstance> {
+    pub fn instances(&self) -> &Vec<PicotestInstance> {
         &self.instances
     }
 

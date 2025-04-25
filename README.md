@@ -232,7 +232,7 @@ struct User {
 fn test_pg_connection() {
     let conn_string = format!(
         "host=localhost port={} user={} password={}",
-        cluster.main().properties().pg_port,
+        cluster.main().pg_port,
         PICOTEST_USER,
         PICOTEST_USER_PASSWORD
     );
