@@ -9,3 +9,7 @@ members = [
 exclude = [
     "tmp/test_plugin"
 ]
+
+[workspace.dependencies]
+anyhow = { version = "1.0.98" }
+picodata-pike = { version = "2.4.0" }

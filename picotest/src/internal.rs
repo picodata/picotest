@@ -4,10 +4,12 @@
 //! This module isn't supposed to be used manually.
 
 use anyhow::bail;
+use picotest_helpers::{parse_topology, Cluster, PluginTopology};
 use std::{
     env,
     ffi::OsStr,
     path::{Path, PathBuf},
+    time::Duration,
 };
 
 #[cfg(target_os = "linux")]
@@ -31,6 +33,11 @@ pub fn plugin_dylib_path(plugin_path: &Path) -> PathBuf {
         .join("target")
         .join("debug")
         .join(plugin_dylib_filename())
+}
+
+/// Constructs a path to the topology file of the plugin.
+pub fn plugin_topology_path(plugin_path: &Path) -> PathBuf {
+    plugin_path.join(PLUGIN_TOPOLOGY_FILENAME)
 }
 
 /// Returns root directory of the plugin.
@@ -114,4 +121,33 @@ pub fn verify_unit_test_output(output: &str) -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+/// Creates new instance of Picodata [`Cluster`].
+///
+/// ### Arguments
+/// - `plugin_path` - path to the plugin root directory.
+///                   If `None`, directory is identified automatically.
+/// - `plugin_topology` - instance of `PluginTopology`.
+///                   If `None`, topology is parsed from default path.
+/// - `timeout` - timeout after cluster start.
+///
+pub fn create_cluster(
+    plugin_path: Option<PathBuf>,
+    plugin_topology: Option<PluginTopology>,
+    timout: Duration,
+) -> Cluster {
+    // Look up plugin root directory automatically
+    // unless explicitly specified.
+    let plugin_path = plugin_path.unwrap_or_else(plugin_root_dir);
+    // Use passed topology or go and parse original topology
+    // located in plugin root directory.
+    let plugin_topology = plugin_topology.map_or_else(
+        || parse_topology(&plugin_topology_path(&plugin_path)),
+        Result::Ok,
+    );
+    Cluster::new(plugin_path, plugin_topology.unwrap(), timout)
+        .expect("Failed to create the cluster")
+        .run()
+        .expect("Failed to start the cluster")
 }
