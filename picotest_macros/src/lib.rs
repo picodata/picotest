@@ -101,7 +101,12 @@ pub fn picotest_unit(_: TokenStream, tokens: TokenStream) -> TokenStream {
                         internal::lua_ffi_call_unit_test(
                             #test_fn_name, plugin_dylib_path.to_str().unwrap());
 
-                    let cluster = picotest::cluster(plugin_path.to_str().unwrap().into(), 0);
+                    let cluster = picotest::get_or_create_session_cluster(
+                        plugin_path.to_str().unwrap().into(),
+                        None,
+                        0
+                    );
+
                     let output = cluster.run_query(call_test_fn_query)
                         .expect("Failed to execute query");
 

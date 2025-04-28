@@ -16,8 +16,9 @@ use std::{
 };
 use uuid::Uuid;
 
+pub type PluginTopology = pike::cluster::Topology;
+
 const SOCKET_PATH: &str = "cluster/i1/admin.sock";
-const TOPOLOGY_FILENAME: &str = "topology.toml";
 pub const PICOTEST_USER: &str = "Picotest";
 pub const PICOTEST_USER_PASSWORD: &str = "Pic0test";
 
@@ -32,7 +33,7 @@ pub fn tmp_dir() -> PathBuf {
     ))
 }
 
-fn parse_topology(path: &PathBuf) -> anyhow::Result<Topology> {
+pub fn parse_topology(path: &PathBuf) -> anyhow::Result<Topology> {
     toml::from_str(
         &fs::read_to_string(path).context(format!("Failed to read file '{}'", path.display()))?,
     )
@@ -100,14 +101,13 @@ impl Drop for Cluster {
 }
 
 impl Cluster {
-    pub fn new(plugin_path: &str, timeout: Duration) -> anyhow::Result<Self> {
+    pub fn new(
+        plugin_path: PathBuf,
+        topology: PluginTopology,
+        timeout: Duration,
+    ) -> anyhow::Result<Self> {
         let data_dir = tmp_dir();
-        let plugin_path = PathBuf::from(plugin_path);
         let socket_path = plugin_path.join(&data_dir).join(SOCKET_PATH);
-
-        let topology_path = plugin_path.join(TOPOLOGY_FILENAME);
-        let topology = parse_topology(&topology_path)?;
-
         let cluster = Self {
             uuid: Uuid::new_v4(),
             plugin_path,
