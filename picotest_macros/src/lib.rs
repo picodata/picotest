@@ -96,6 +96,7 @@ pub fn picotest_unit(_: TokenStream, tokens: TokenStream) -> TokenStream {
                     let plugin_path = internal::plugin_root_dir();
                     let plugin_dylib_path =
                         internal::plugin_dylib_path(&plugin_path);
+                    let plugin_topology = internal::get_or_create_unit_test_topology();
 
                     let call_test_fn_query =
                         internal::lua_ffi_call_unit_test(
@@ -103,7 +104,7 @@ pub fn picotest_unit(_: TokenStream, tokens: TokenStream) -> TokenStream {
 
                     let cluster = picotest::get_or_create_session_cluster(
                         plugin_path.to_str().unwrap().into(),
-                        None,
+                        plugin_topology.into(),
                         0
                     );
 

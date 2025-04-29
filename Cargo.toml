@@ -13,3 +13,4 @@ exclude = [
 [workspace.dependencies]
 anyhow = { version = "1.0.98" }
 picodata-pike = { version = "2.4.0" }
+rstest = { version = "0.25.0"}

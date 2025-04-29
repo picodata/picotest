@@ -24,3 +24,6 @@ uuid = { version = "1.16.0", features = ["v4"] }
 picodata-pike.workspace = true
 anyhow.workspace = true
 toml = "0.8.21"
+
+[dev-dependencies]
+rstest.workspace = true

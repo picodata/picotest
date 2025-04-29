@@ -1097,6 +1097,7 @@ dependencies = [
  "log",
  "picodata-pike",
  "rand",
+ "rstest",
  "toml",
  "uuid",
 ]
