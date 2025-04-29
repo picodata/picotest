@@ -1,13 +1,11 @@
-pub use std::{sync::OnceLock, time::Duration};
-
-use internal::create_cluster;
-use picotest_helpers::PluginTopology;
-pub use picotest_helpers::{Cluster, PICOTEST_USER, PICOTEST_USER_PASSWORD};
+pub use picotest_helpers::{
+    topology::PluginTopology, Cluster, PICOTEST_USER, PICOTEST_USER_PASSWORD,
+};
 pub use picotest_macros::*;
-use std::path::PathBuf;
-pub mod internal;
 pub use rstest::*;
-pub use std::panic;
+pub use std::{panic, path::PathBuf, sync::OnceLock, time::Duration};
+
+pub mod internal;
 
 pub static SESSION_CLUSTER: OnceLock<Cluster> = OnceLock::new();
 
@@ -29,7 +27,7 @@ pub fn get_or_create_session_cluster(
         let plugin_topology = plugin_topology.cloned();
         let timeout = Duration::from_secs(timeout_secs);
 
-        create_cluster(plugin_path, plugin_topology, timeout)
+        internal::create_cluster(plugin_path, plugin_topology, timeout)
     })
 }
 

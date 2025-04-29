@@ -1,4 +1,3 @@
-use anyhow::Context;
 use log::{debug, info, warn};
 use pike::cluster::{PicodataInstance, RunParamsBuilder, StopParamsBuilder, Topology};
 use pike::config::{ApplyParamsBuilder, PluginConfigMap};
@@ -14,9 +13,10 @@ use std::{
     process::{Child, Command, Stdio},
     time::{Duration, Instant},
 };
+use topology::PluginTopology;
 use uuid::Uuid;
 
-pub type PluginTopology = pike::cluster::Topology;
+pub mod topology;
 
 const SOCKET_PATH: &str = "cluster/i1/admin.sock";
 pub const PICOTEST_USER: &str = "Picotest";
@@ -30,16 +30,6 @@ pub fn tmp_dir() -> PathBuf {
             .map(|_| rng.sample(Alphanumeric))
             .map(char::from)
             .collect::<String>()
-    ))
-}
-
-pub fn parse_topology(path: &PathBuf) -> anyhow::Result<Topology> {
-    toml::from_str(
-        &fs::read_to_string(path).context(format!("Failed to read file '{}'", path.display()))?,
-    )
-    .context(format!(
-        "Failed to parse topology TOML from path '{}'",
-        path.display()
     ))
 }
 

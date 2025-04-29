@@ -4,11 +4,17 @@
 //! This module isn't supposed to be used manually.
 
 use anyhow::bail;
-use picotest_helpers::{parse_topology, Cluster, PluginTopology};
+use picotest_helpers::{
+    topology::{
+        parse_topology, PluginTopology, SingleNodeTopologyTransformer, TopologyTransformer,
+    },
+    Cluster,
+};
 use std::{
     env,
     ffi::OsStr,
     path::{Path, PathBuf},
+    sync::OnceLock,
     time::Duration,
 };
 
@@ -150,4 +156,23 @@ pub fn create_cluster(
         .expect("Failed to create the cluster")
         .run()
         .expect("Failed to start the cluster")
+}
+
+/// Provides topology specifically for running unit-tests.
+///
+/// Basically, it takes source plugin topology and transforms it to a
+/// single node cluster with only one default tier.
+///
+/// Note: on first call topology is created. Any consequent calls will
+/// only take already initialized value from sync. cell.
+///
+pub fn get_or_create_unit_test_topology() -> &'static PluginTopology {
+    static TOPOLOGY: OnceLock<PluginTopology> = OnceLock::new();
+
+    TOPOLOGY.get_or_init(|| {
+        let plugin_topology_path = plugin_topology_path(&plugin_root_dir());
+        let plugin_topology = parse_topology(&plugin_topology_path).unwrap();
+
+        SingleNodeTopologyTransformer::transform(&plugin_topology)
+    })
 }
