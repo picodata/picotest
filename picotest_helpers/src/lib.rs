@@ -373,21 +373,21 @@ impl Cluster {
 
     // Create two users for pgproto and iproto with different password encryption
     fn create_picotest_users(&self) {
-        self.run_query(format!(
-            r#"CREATE USER "{PICOTEST_USER}" with password '{PICOTEST_USER_PASSWORD}' using md5;"#
-        ))
-        .expect("Picotest user create should not fail");
+        for (user, auth_method) in [(PICOTEST_USER, "md5"), (PICOTEST_USER_IPROTO, "chap-sha1")] {
+            self.run_query(format!(
+                r#"CREATE USER "{user}" with password '{PICOTEST_USER_PASSWORD}' using {auth_method};"#
+            ))
+            .expect("Picotest user create should not fail");
 
-        self.run_query(format!(r#"GRANT CREATE TABLE TO "{PICOTEST_USER}""#))
-            .expect("Picotest user grant should not fail");
+            self.run_query(format!(r#"GRANT CREATE TABLE TO "{user}""#))
+                .expect("Picotest user grant should not fail");
 
-        self.run_query(format!(
-            r#"CREATE USER "{PICOTEST_USER_IPROTO}" with password '{PICOTEST_USER_PASSWORD}' using chap-sha1;"#
-        ))
-        .expect("Picotest user create should not fail");
+            self.run_query(format!(r#"GRANT READ TABLE TO "{user}""#))
+                .expect("Picotest user grant should not fail");
 
-        self.run_query(format!(r#"GRANT CREATE TABLE TO "{PICOTEST_USER_IPROTO}""#))
-            .expect("Picotest user grant should not fail");
+            self.run_query(format!(r#"GRANT WRITE TABLE TO "{user}""#))
+                .expect("Picotest user grant should not fail");
+        }
     }
 }
 
