@@ -174,6 +174,11 @@ impl Cluster {
     ) -> anyhow::Result<Self> {
         let data_dir = tmp_dir();
         let socket_path = plugin_path.join(&data_dir).join(SOCKET_PATH);
+
+        if let Err(err) = fs::remove_dir_all(plugin_path.join(data_dir.parent().unwrap())) {
+            warn!("Failed to remove cluster data directory: {err}");
+        }
+
         let cluster = Self {
             uuid: Uuid::new_v4(),
             plugin_path,
@@ -195,10 +200,6 @@ impl Cluster {
 
         debug!("Stopping the cluster with parameters {params:?}");
         pike::cluster::stop(&params)?;
-
-        if let Err(err) = fs::remove_dir_all(self.plugin_path.join(&self.data_dir)) {
-            warn!("Failed to remove cluster data directory: {err}");
-        }
 
         Ok(())
     }
