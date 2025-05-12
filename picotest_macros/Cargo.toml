@@ -1,6 +1,6 @@
 [package]
 name = "picotest_macros"
-version = "1.3.0"
+version = "1.3.1"
 edition = "2021"
 license = "BSD-2-Clause"
 description = "Test framework for Picodata plugin"
