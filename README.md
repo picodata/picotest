@@ -101,6 +101,61 @@ mod test_mod {
 | `path`    | Путь до директории, содержащей файл топологии плагина ([topology.toml](https://github.com/picodata/pike?tab=readme-ov-file#topologytoml)) | Определяется автоматически |
 | `timeout` | Таймаут перед запуском первого теста (seconds) | 5 |
 
+### Применение конфигурации плагина к запущенному кластеру Picodata
+
+Picotest позволяет менять конфигурацию сервисов плагина во время исполнения интеграционного теста.
+
+Изменение конфигурации происходит с помощью метода [Cluster::apply_config](https://docs.rs/picotest/latest/picotest/struct.Cluster.html#method.apply_config), 
+который доступен при использовании макроса #[picotest].
+
+Формат конфигурации должен соответствовать маппингу YAML, заданному в [plugin_config.yaml](https://github.com/picodata/pike?tab=readme-ov-file#config-apply).
+
+**Пример:**
+
+Допустим конфигурация плагина с одним сервисом "router" задана следующим образом:
+
+```yaml
+router:
+ rpc_endpoint: "/hello"
+ max_rpc_message_size_bytes: 1024
+ max_rpc_message_queue_size: 2048
+```
+
+Тогда интеграционный тест, изменяющий данную конфигурацию, может выглядеть следующим образом:
+
+```rust
+use rmpv::Value;
+use std::collections::HashMap;
+use serde_yaml::Value;
+use picotest::*;
+
+#[picotest]
+fn test_apply_plugin() {
+    // 1. Override properties of the "router" service.
+    ///
+    let router_config = HashMap::from([
+        ("rpc_endpoint".to_string(), Value::String("/test".into())),
+        ("max_rpc_message_size_bytes".to_string(), Value::Number(128.into())),
+        ("max_rpc_message_queue_size".to_string(), Value::Number(32.into())),
+    ]);
+    ///
+    // 2. "Attach" overridden properties to the service "router".
+
+    let plugin_config = HashMap::from([("router".to_string(), router_config)]);
+    ///
+    // 3. Apply config to the running cluster instance.
+
+    cluster // implicitly created variable by picotest magic
+        .apply_config(plugin_config)
+        .expect("Failed to apply config");
+
+
+    // Callback Serivce::on_config_change should've been already called at this point.
+}
+```
+
+Подробнее в описании метода [Cluster::apply_config](https://docs.rs/picotest/latest/picotest/struct.Cluster.html#method.apply_config).
+
 # Управление кластером в Picotest
 
 ## Жизненный цикл и изоляция кластера

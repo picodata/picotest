@@ -204,6 +204,118 @@ impl Cluster {
         Ok(())
     }
 
+    /// Applies passed plugin config to the running cluster through the interface of command
+    /// "[pike config apply](https://github.com/picodata/pike?tab=readme-ov-file#config-apply)".
+    ///
+    /// ### Arguments:
+    ///
+    /// - `config` - mapping of plugin services to their values.
+    ///              This map should be serializable into [`PluginConfigMap`].
+    ///
+    /// ### Returns
+    ///
+    /// - On sucess, returns nothing.
+    /// - On failure, instance of [`anyhow::Result`].
+    ///
+    /// **Note:** your cluster logs may contain messages related to status of config applying.
+    /// E.g., if some fields are erroneously serialized, Picodata plugin environment will
+    /// throw a descriptive error during config validation saying what went wrong.
+    ///
+    /// Thus, this routine will raise an error if something goes wrong, but details of an error
+    /// rather be found in cluster logs.
+    ///
+    /// ### Examples:
+    ///
+    /// #### Plugin with single service called `router`.
+    ///
+    /// Assume [plugin YAML configuration file](https://github.com/picodata/pike?tab=readme-ov-file#config-apply)
+    /// has the following mapping:
+    ///
+    /// ```yaml
+    /// router:
+    ///  rpc_endpoint: "/hello"
+    ///  max_rpc_message_size_bytes: 1024
+    ///  max_rpc_message_queue_size: 2048
+    /// ```
+    ///
+    /// Out integration test will override all fields of service configuration
+    /// and apply new config through [`Cluster::apply_config`] routine.
+    ///
+    /// By means of `HashMap` and `serde_yaml` we can assemble needed [`PluginConfigMap`] and
+    /// use it in out test.
+    ///
+    /// ```rust,no_run
+    /// use rmpv::Value;
+    /// use std::collections::HashMap;
+    /// use serde_yaml::Value;
+    /// use picotest::*;
+    ///
+    /// #[picotest]
+    /// fn test_apply_plugin() {
+    ///     // 1. Override properties of the "router" service.
+    ///
+    ///     let router_config = HashMap::from([
+    ///         ("rpc_endpoint".to_string(), Value::String("/test".into())),
+    ///         ("max_rpc_message_size_bytes".to_string(), Value::Number(128.into())),
+    ///         ("max_rpc_message_queue_size".to_string(), Value::Number(32.into())),
+    ///     ]);
+    ///
+    ///     // 2. "Attach" overridden properties to the service "router".
+    ///
+    ///     let plugin_config = HashMap::from([("router".to_string(), router_config)]);
+    ///
+    ///     // 3. Apply config to the running cluster instance.
+    ///
+    ///     cluster // implicitly created variable by picotest magic
+    ///         .apply_config(plugin_config)
+    ///         .expect("Failed to apply config");
+    ///
+    ///     // Callback Serivce::on_config_change should've been already
+    ///     // called at this point.
+    /// }
+    /// ```
+    ///
+    /// #### Plugin with single service called `router`, which has nested properties for RPC machinery.
+    ///
+    /// Nested sections in config mapping are handled similarly. We just need to wrap nested map value into [`serde_yaml::Value`].
+    ///
+    /// Assume [plugin YAML configuration file](https://github.com/picodata/pike?tab=readme-ov-file#config-apply)
+    /// has the following mapping:
+    ///
+    /// ```yaml
+    /// router:
+    ///  rpc:
+    ///   endpoint: "/hello"
+    ///   max_message_size_bytes: 1024
+    ///   max_message_queue_size: 2048
+    /// ```
+    ///
+    /// Out integration test will look like:
+    ///
+    /// ```rust,no_run
+    /// use rmpv::Value;
+    /// use std::collections::HashMap;
+    /// use serde_yaml::Value;
+    /// use picotest::*;
+    ///
+    /// #[picotest]
+    /// fn test_apply_plugin() {
+    ///     // Override properties of the RPC machinery.
+    ///     let rpc_config = HashMap::from([
+    ///         ("endpoint".to_string(), Value::String("/test".into())),
+    ///         ("max_message_size_bytes".to_string(), Value::Number(128.into())),
+    ///         ("max_message_queue_size".to_string(), Value::Number(32.into())),
+    ///     ]);
+    ///
+    ///     let router_config = HashMap::from([("rpc".to_string(), serde_yaml::to_value(rpc_config).unwrap())]);
+    ///     let plugin_config = HashMap::from([("router".to_string(), router_config)]);
+    ///
+    ///     cluster // implicitly created variable by picotest magic
+    ///         .apply_config(plugin_config)
+    ///         .expect("Failed to apply config");
+    /// }
+    /// ```
+    ///
     pub fn apply_config<T>(&self, config: T) -> anyhow::Result<()>
     where
         T: Into<PluginConfigMap>,
