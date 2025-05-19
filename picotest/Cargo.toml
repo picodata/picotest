@@ -31,6 +31,6 @@ rmp-serde.workspace = true
 tokio = "1.29.1"
 wait-timeout = "0.2.1"
 uuid = { version = "1.16.0", features = ["v4"] }
-constcat = "0.6.0"
+constcat = "0.6.1"
 serde_yaml = "0.9.34"
 postgres = { version = "0.19", features = ["with-chrono-0_4"] }
