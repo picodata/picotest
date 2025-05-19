@@ -119,7 +119,7 @@ pub struct ExampleResponse {
 
 #[tokio::test]
 #[picotest(path = "../tmp/test_plugin")]
-async fn test_rpc_handle() {
+async fn test_rpc_handle(plugin: &TestPlugin) {
     let user_to_send = User {
         name: "Dodo".to_string(),
     };
@@ -127,9 +127,9 @@ async fn test_rpc_handle() {
     let tnt_response = cluster
         .main()
         .execute_rpc::<User, ExampleResponse>(
-            "test_plugin",
+            &plugin.name,
             "/greetings_rpc",
-            "main",
+            &plugin.service_name,
             "0.1.0",
             &user_to_send,
         )
