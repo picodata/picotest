@@ -12,7 +12,7 @@ use wait_timeout::ChildExt;
 const TMP_DIR: &str = "../tmp/";
 const PLUGIN_NAME: &str = "test_plugin";
 const PLUGIN_DIR: &str = concat!(TMP_DIR, PLUGIN_NAME);
-const PLUGIN_SERVICE_NAME: &str = "main";
+const PLUGIN_SERVICE_NAME: &str = "example_service";
 const PROCESS_WAIT_TIMEOUT: Duration = Duration::from_secs(10);
 const TESTS_EXECUTION_TIMELIMIT: Duration = Duration::from_secs(1200);
 
