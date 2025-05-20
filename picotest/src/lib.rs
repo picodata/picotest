@@ -9,6 +9,8 @@ pub mod internal;
 
 pub static SESSION_CLUSTER: OnceLock<Cluster> = OnceLock::new();
 
+pub type PluginConfigMap = picotest_helpers::PluginConfigMap;
+
 #[fixture]
 pub fn cluster(
     #[default(None)] plugin_path: Option<&str>,

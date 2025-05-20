@@ -4,7 +4,7 @@ use log::{debug, info, warn};
 use pike::cluster::{
     PicodataInstance, PicodataInstanceProperties, RunParamsBuilder, StopParamsBuilder, Topology,
 };
-use pike::config::{ApplyParamsBuilder, PluginConfigMap};
+use pike::config::ApplyParamsBuilder;
 use rand::distr::Alphanumeric;
 use rand::Rng;
 use rmpv::Value;
@@ -26,6 +26,8 @@ use topology::PluginTopology;
 use uuid::Uuid;
 
 pub mod topology;
+
+pub type PluginConfigMap = pike::config::PluginConfigMap;
 
 const SOCKET_PATH: &str = "cluster/i1/admin.sock";
 pub const PICOTEST_USER: &str = "Picotest";
