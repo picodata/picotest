@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [1.4.0]
+
+### Added
+
+* Description for using plugin config
+* `PluginConfigMap` type for external configuration in `apply_config` 
+* Added support for `picodata 25.1.2`
+
 ## [1.3.1]
 
 ### Fixed
