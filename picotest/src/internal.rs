@@ -104,16 +104,15 @@ pub fn find_plugin_topology_path() -> anyhow::Result<Option<PathBuf>> {
 pub fn lua_ffi_call_unit_test(test_fn_name: &str, plugin_dylib_path: &str) -> String {
     format!(
         r#"\lua
-\set delimiter !
-"[*] Running unit-test '{test_fn_name}'"!
+"[*] Running unit-test '{test_fn_name}'"
 
-local ffi = require("ffi")
+ffi = require("ffi")
 ffi.cdef[[void {test_fn_name}();]]
-local dylib = "{plugin_dylib_path}"
-ffi.load(dylib).{test_fn_name}()!
+dylib = "{plugin_dylib_path}"
+ffi.load(dylib).{test_fn_name}()
 
-"[*] Test '{test_fn_name}' has been finished"!
-true!"#
+"[*] Test '{test_fn_name}' has been finished"
+true"#
     )
 }
 
