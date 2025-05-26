@@ -99,7 +99,7 @@ pub fn find_plugin_topology_path() -> anyhow::Result<Option<PathBuf>> {
 /// ### Arguments
 /// - `test_fn_name` - name of the test function to call dynamically.
 /// - `plugin_dylib_path` - path to the plugin shared library, which should
-///                         contain test function symbol.
+///   contain test function symbol.
 ///
 pub fn lua_ffi_call_unit_test(test_fn_name: &str, plugin_dylib_path: &str) -> String {
     format!(
@@ -132,9 +132,9 @@ pub fn verify_unit_test_output(output: &str) -> anyhow::Result<()> {
 ///
 /// ### Arguments
 /// - `plugin_path` - path to the plugin root directory.
-///                   If `None`, directory is identified automatically.
+///   If `None`, directory is identified automatically.
 /// - `plugin_topology` - instance of `PluginTopology`.
-///                   If `None`, topology is parsed from default path.
+///   If `None`, topology is parsed from default path.
 /// - `timeout` - timeout after cluster start.
 ///
 pub fn create_cluster(

@@ -212,7 +212,7 @@ impl Cluster {
     /// ### Arguments:
     ///
     /// - `config` - mapping of plugin services to their values.
-    ///              This structure should be able to deserialize into [`PluginConfigMap`].
+    ///   This structure should be able to deserialize into [`PluginConfigMap`].
     ///
     /// ### Returns
     ///
