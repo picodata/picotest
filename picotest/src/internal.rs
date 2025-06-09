@@ -103,7 +103,7 @@ pub fn find_plugin_topology_path() -> anyhow::Result<Option<PathBuf>> {
 ///
 pub fn lua_ffi_call_unit_test(test_fn_name: &str, plugin_dylib_path: &str) -> String {
     format!(
-        r#"\lua
+        r#"
 "[*] Running unit-test '{test_fn_name}'"
 
 ffi = require("ffi")

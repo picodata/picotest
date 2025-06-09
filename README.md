@@ -389,3 +389,26 @@ async fn test_rpc_handle() {
     );
 }
 ```
+
+
+## Покдлючение к admin консоле и выполнение sql/lua 
+
+Для выполнения кода из консоли администратора на первом инстансе воспользуйтесь:
+
+```rust
+#[picotest]
+fn test_query() {
+    cluster.run_query("SELECT * FROM users"); // Выполнение SQL запроса
+    cluster.run_lua("box.space.users:select()"); // Выполнение LUA кода
+}
+```
+
+Если существует необходимость выполнить скрипт на любом другом инстансе: 
+
+```rust
+#[picotest]
+fn test_run_query_on_instance() {
+    cluster.instances[1].run_query("SELECT * FROM users");
+    cluster.instances[2].run_lua("box.space.users:select()");
+}
+```

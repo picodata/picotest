@@ -29,11 +29,11 @@ pub mod topology;
 
 pub type PluginConfigMap = pike::config::PluginConfigMap;
 
-const SOCKET_PATH: &str = "cluster/i1/admin.sock";
+const ADMIN_SOCKET_NAME: &str = "admin.sock";
+const LOCALHOST_IP: &str = "127.0.0.1";
 pub const PICOTEST_USER: &str = "Picotest";
 pub const PICOTEST_USER_IPROTO: &str = "PicotestBin";
 pub const PICOTEST_USER_PASSWORD: &str = "Pic0test";
-const LOCALHOST_IP: &str = "127.0.0.1";
 
 pub fn tmp_dir() -> PathBuf {
     let mut rng = rand::rng();
@@ -48,6 +48,7 @@ pub fn tmp_dir() -> PathBuf {
 
 pub struct PicotestInstance {
     inner: PicodataInstance,
+    pub socket_path: PathBuf,
     pub bin_port: u16,
     pub pg_port: u16,
     pub http_port: u16,
@@ -56,17 +57,23 @@ pub struct PicotestInstance {
     pub instance_id: u16,
 }
 
-impl From<PicodataInstance> for PicotestInstance {
-    fn from(instance: PicodataInstance) -> Self {
+impl From<(PicodataInstance, &PathBuf)> for PicotestInstance {
+    fn from((instance, data_dir): (PicodataInstance, &PathBuf)) -> Self {
         let properties = instance.properties();
+        let instance_name = properties.instance_name;
+        let socket_path = data_dir
+            .join("cluster")
+            .join(instance_name)
+            .join(ADMIN_SOCKET_NAME);
         PicotestInstance {
             bin_port: *properties.bin_port,
             pg_port: *properties.pg_port,
             http_port: *properties.http_port,
-            instance_name: properties.instance_name.to_string(),
+            instance_name: instance_name.to_string(),
             tier: properties.tier.to_string(),
             instance_id: *properties.instance_id,
             inner: instance,
+            socket_path,
         }
     }
 }
@@ -148,6 +155,112 @@ impl PicotestInstance {
 
         Ok(response_decoded)
     }
+
+    /// Executes an SQL query through the picodata admin console.
+    ///
+    /// # Workflow
+    /// 1. Establishes connection with the admin console (`await_picodata_admin`)
+    /// 2. Writes the query to the process's stdin
+    /// 3. Reads the result from stdout, skipping the first 2 lines (typically headers)
+    /// 4. Terminates the process after receiving the result
+    ///
+    /// # Arguments
+    /// * `query` - SQL query as a byte slice or convertible type
+    ///
+    /// # Return Value
+    /// `Result<String, Error>` where:
+    /// * `Ok(String)` - query execution result
+    /// * `Err(Error)` - I/O or execution error
+    ///
+    /// # Examples
+    /// ```rust,ignore
+    /// use picotest::*;
+    ///
+    /// #[picotest]
+    /// fn run_sql_query() {
+    ///     let result = cluster.instances[0].run_query("SELECT * FROM users").unwrap();
+    ///     println!("{}", result);
+    /// }
+    /// ```
+    pub fn run_query<T: AsRef<[u8]>>(&self, query: T) -> Result<String, Error> {
+        let mut picodata_admin = self.await_picodata_admin()?;
+
+        let stdout = picodata_admin
+            .stdout
+            .take()
+            .expect("Failed to capture stdout");
+        {
+            let picodata_stdin = picodata_admin.stdin.as_mut().unwrap();
+            picodata_stdin.write_all(query.as_ref())?;
+            picodata_admin.wait()?;
+        }
+
+        let mut result = String::new();
+        let reader = BufReader::new(stdout);
+        for line in reader.lines().skip(2) {
+            match line {
+                Ok(l) => result.push_str(&l),
+                Err(e) => return Err(e),
+            }
+        }
+        picodata_admin.kill()?;
+
+        Ok(result)
+    }
+
+    /// Executes Lua script through picodata's query mechanism.
+    ///
+    /// Prepends `\lua\n` to the query and passes it to `run_query`.
+    ///
+    /// # Arguments
+    /// * `query` - Lua code as a byte slice or convertible type
+    ///
+    /// # Return Value
+    /// `Result<String, Error>` where:
+    /// * `Ok(String)` - script execution result
+    /// * `Err(Error)` - execution error (inherited from `run_query`)
+    ///
+    /// # Examples
+    /// ```rust,ignore
+    /// use picotest::*;
+    ///
+    /// #[picotest]
+    /// fn test_run_lua_query() {
+    ///     let res = cluster.instances()[1].run_lua("return 1 + 1")?;
+    ///     assert!(res.contains("2"));
+    /// }
+    /// ```
+    pub fn run_lua<T: AsRef<[u8]>>(&self, query: T) -> Result<String, Error> {
+        self.run_query([b"\\lua\n", query.as_ref()].concat())
+    }
+
+    fn await_picodata_admin(&self) -> Result<Child, Error> {
+        let timeout = Duration::from_secs(60);
+        let start_time = Instant::now();
+        loop {
+            assert!(
+                start_time.elapsed() < timeout,
+                "process hanging for too long"
+            );
+
+            let picodata_admin = Command::new("picodata")
+                .arg("admin")
+                .arg(self.socket_path.clone())
+                .stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+                .spawn();
+
+            match picodata_admin {
+                Ok(process) => {
+                    info!("Successfully connected to picodata cluster.");
+                    return Ok(process);
+                }
+                Err(_) => {
+                    std::thread::sleep(Duration::from_secs(1));
+                }
+            }
+        }
+    }
 }
 
 pub struct Cluster {
@@ -155,7 +268,6 @@ pub struct Cluster {
     pub plugin_path: PathBuf,
     pub data_dir: PathBuf,
     pub timeout: Duration,
-    socket_path: PathBuf,
     topology: Topology,
     instances: Vec<PicotestInstance>,
 }
@@ -175,7 +287,6 @@ impl Cluster {
         timeout: Duration,
     ) -> anyhow::Result<Self> {
         let data_dir = tmp_dir();
-        let socket_path = plugin_path.join(&data_dir).join(SOCKET_PATH);
 
         if let Err(err) = fs::remove_dir_all(plugin_path.join(data_dir.parent().unwrap())) {
             warn!("Failed to remove cluster data directory: {err}");
@@ -186,12 +297,15 @@ impl Cluster {
             plugin_path,
             data_dir,
             timeout,
-            socket_path,
             topology,
             instances: Default::default(),
         };
 
         Ok(cluster)
+    }
+
+    pub fn data_dir_path(&self) -> PathBuf {
+        self.plugin_path.join(self.data_dir.clone())
     }
 
     pub fn stop(&self) -> anyhow::Result<()> {
@@ -379,17 +493,19 @@ impl Cluster {
             .use_release(false)
             .build()?;
 
+        let data_dir = self.data_dir_path();
+
         debug!("Starting the cluster with parameters {params:?}");
-        let mut intances: Vec<PicotestInstance> = pike::cluster::run(&params)?
+        let mut instances: Vec<PicotestInstance> = pike::cluster::run(&params)?
             .into_iter()
-            .map(PicotestInstance::from)
+            .map(|instance| PicotestInstance::from((instance, &data_dir)))
             .collect();
 
         debug_assert!(
             self.instances.is_empty(),
             "trying to replace already running cluster?"
         );
-        std::mem::swap(&mut self.instances, &mut intances);
+        std::mem::swap(&mut self.instances, &mut instances);
 
         self.wait()?;
         self.create_picotest_users();
@@ -414,7 +530,7 @@ impl Cluster {
         );
 
         loop {
-            let mut picodata_admin: Child = self.await_picodata_admin()?;
+            let mut picodata_admin: Child = self.main().await_picodata_admin()?;
             let stdout = picodata_admin
                 .stdout
                 .take()
@@ -458,59 +574,60 @@ impl Cluster {
         }
     }
 
+    /// Executes an SQL query through the picodata admin console.
+    ///
+    /// # Workflow
+    /// 1. Establishes connection with the admin console (`await_picodata_admin`)
+    /// 2. Writes the query to the process's stdin
+    /// 3. Reads the result from stdout, skipping the first 2 lines (typically headers)
+    /// 4. Terminates the process after receiving the result
+    ///
+    /// # Arguments
+    /// * `query` - SQL query as a byte slice or convertible type
+    ///
+    /// # Return Value
+    /// `Result<String, Error>` where:
+    /// * `Ok(String)` - query execution result
+    /// * `Err(Error)` - I/O or execution error
+    ///
+    /// # Examples
+    /// ```rust,ignore
+    /// use picotest::*;
+    ///
+    /// #[picotest]
+    /// fn run_sql_query() {
+    ///     let result = cluster.run_query("SELECT * FROM users").unwrap();
+    ///     println!("{}", result);
+    /// }
+    /// ```
     pub fn run_query<T: AsRef<[u8]>>(&self, query: T) -> Result<String, Error> {
-        let mut picodata_admin = self.await_picodata_admin()?;
-
-        let stdout = picodata_admin
-            .stdout
-            .take()
-            .expect("Failed to capture stdout");
-        {
-            let picodata_stdin = picodata_admin.stdin.as_mut().unwrap();
-
-            picodata_stdin.write_all(query.as_ref()).unwrap();
-            picodata_admin.wait().unwrap();
-        }
-
-        let mut result = String::new();
-        let reader = BufReader::new(stdout);
-        for line in reader.lines() {
-            match line {
-                Ok(l) => result.push_str(&l),
-                Err(e) => return Err(e),
-            }
-        }
-        picodata_admin.kill()?;
-
-        Ok(result)
+        self.main().run_query(query)
     }
 
-    fn await_picodata_admin(&self) -> Result<Child, Error> {
-        let timeout = Duration::from_secs(60);
-        let start_time = Instant::now();
-        loop {
-            assert!(
-                start_time.elapsed() < timeout,
-                "process hanging for too long"
-            );
-
-            let picodata_admin = Command::new("picodata")
-                .arg("admin")
-                .arg(self.socket_path.clone())
-                .stdin(Stdio::piped())
-                .stdout(Stdio::piped())
-                .spawn();
-
-            match picodata_admin {
-                Ok(process) => {
-                    info!("Successfully connected to picodata cluster.");
-                    return Ok(process);
-                }
-                Err(_) => {
-                    std::thread::sleep(Duration::from_secs(1));
-                }
-            }
-        }
+    /// Executes Lua script through picodata's query mechanism.
+    ///
+    /// Prepends `\lua\n` to the query and passes it to `run_query`.
+    ///
+    /// # Arguments
+    /// * `query` - Lua code as a byte slice or convertible type
+    ///
+    /// # Return Value
+    /// `Result<String, Error>` where:
+    /// * `Ok(String)` - script execution result
+    /// * `Err(Error)` - execution error (inherited from `run_query`)
+    ///
+    /// # Examples
+    /// ```rust,ignore
+    /// use picotest::*;
+    ///
+    /// #[picotest]
+    /// fn test_run_lua_query() {
+    ///     let res = cluster.instances()[1].run_lua("return 1 + 1")?;
+    ///     assert!(res.contains("2"));
+    /// }
+    /// ```
+    pub fn run_lua<T: AsRef<[u8]>>(&self, query: T) -> Result<String, Error> {
+        self.main().run_lua(query)
     }
 
     /// Method returns first running cluster instance
