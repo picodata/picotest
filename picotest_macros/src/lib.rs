@@ -108,7 +108,7 @@ pub fn picotest_unit(_: TokenStream, tokens: TokenStream) -> TokenStream {
                         0
                     );
 
-                    let output = cluster.run_query(call_test_fn_query)
+                    let output = cluster.run_lua(call_test_fn_query)
                         .expect("Failed to execute query");
 
                     if let Err(err) = internal::verify_unit_test_output(&output) {

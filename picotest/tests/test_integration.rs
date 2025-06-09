@@ -141,3 +141,9 @@ async fn test_rpc_handle(plugin: &TestPlugin) {
         "Hello Dodo, long time no see."
     );
 }
+
+#[picotest(path = "../tmp/test_plugin")]
+fn test_run_lua_query(_plugin: &TestPlugin) {
+    let res = cluster.instances()[1].run_lua("return 1 + 1").unwrap();
+    assert!(res.contains("2"));
+}
