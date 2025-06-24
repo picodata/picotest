@@ -4,12 +4,15 @@
 //! This module isn't supposed to be used manually.
 
 use anyhow::bail;
-use picotest_helpers::{
-    topology::{
-        parse_topology, PluginTopology, SingleNodeTopologyTransformer, TopologyTransformer,
-    },
-    Cluster,
+use picotest_helpers::migration::{
+    find_migrations_directories, make_ddl_tier_overrides, parse_migrations,
 };
+use picotest_helpers::topology::{
+    parse_topology, PluginTopology, SingleNodeTopologyTransformer, TopologyTransformer,
+    DEFAULT_TIER,
+};
+use picotest_helpers::Cluster;
+use std::collections::HashMap;
 use std::{
     env,
     ffi::OsStr,
@@ -32,13 +35,14 @@ fn plugin_dylib_filename() -> String {
     format!("lib{}.{LIB_EXT}", package_name.replace('-', "_"))
 }
 
+pub fn plugin_profile_build_path(plugin_path: &Path) -> PathBuf {
+    plugin_path.join("target").join("debug")
+}
+
 /// Constructs a path to the shared library of the plugin
 /// located by passed `plugin_path`.
 pub fn plugin_dylib_path(plugin_path: &Path) -> PathBuf {
-    plugin_path
-        .join("target")
-        .join("debug")
-        .join(plugin_dylib_filename())
+    plugin_profile_build_path(plugin_path).join(plugin_dylib_filename())
 }
 
 /// Constructs a path to the topology file of the plugin.
@@ -169,9 +173,21 @@ pub fn get_or_create_unit_test_topology() -> &'static PluginTopology {
     static TOPOLOGY: OnceLock<PluginTopology> = OnceLock::new();
 
     TOPOLOGY.get_or_init(|| {
-        let plugin_topology_path = plugin_topology_path(&plugin_root_dir());
+        let plugin_root = plugin_root_dir();
+        let plugin_topology_path = plugin_topology_path(&plugin_root);
         let plugin_topology = parse_topology(&plugin_topology_path).unwrap();
 
-        SingleNodeTopologyTransformer::transform(&plugin_topology)
+        let profile_path = plugin_profile_build_path(&plugin_root);
+        let migrations_paths = find_migrations_directories(profile_path).unwrap();
+        let mut context_vars_map = HashMap::new();
+        for (plugin_name, migrations_path) in migrations_paths {
+            let plugin_migrations = parse_migrations(&migrations_path).unwrap();
+            let ctx_vars = make_ddl_tier_overrides(&plugin_migrations, DEFAULT_TIER);
+            context_vars_map.insert(plugin_name, ctx_vars);
+        }
+
+        let mut transformer = SingleNodeTopologyTransformer::default();
+        transformer.set_migration_context_provider(context_vars_map);
+        transformer.transform(&plugin_topology)
     })
 }
