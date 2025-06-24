@@ -2,7 +2,9 @@ use anyhow::Context;
 use pike::cluster::Tier;
 use std::{fs, path::PathBuf};
 
-const DEFAULT_TIER: &str = "default";
+use crate::migration::MigrationContextProvider;
+
+pub const DEFAULT_TIER: &str = "default";
 
 pub type PluginTopology = pike::cluster::Topology;
 
@@ -17,7 +19,7 @@ pub fn parse_topology(path: &PathBuf) -> anyhow::Result<PluginTopology> {
 }
 
 pub trait TopologyTransformer {
-    fn transform(source_topology: &PluginTopology) -> PluginTopology;
+    fn transform(&self, source_topology: &PluginTopology) -> PluginTopology;
 }
 
 /// Produces single-node topology from source topology.
@@ -26,10 +28,29 @@ pub trait TopologyTransformer {
 /// cluster with default tier. This default tier will contain
 /// all services from source topology.
 ///
-pub struct SingleNodeTopologyTransformer {}
+pub struct SingleNodeTopologyTransformer {
+    mctx_provider: Box<dyn MigrationContextProvider>,
+}
+
+impl Default for SingleNodeTopologyTransformer {
+    fn default() -> Self {
+        Self {
+            mctx_provider: Box::new(vec![]),
+        }
+    }
+}
+
+impl SingleNodeTopologyTransformer {
+    pub fn set_migration_context_provider<P>(&mut self, provider: P)
+    where
+        P: MigrationContextProvider + 'static,
+    {
+        self.mctx_provider = Box::new(provider) as Box<_>;
+    }
+}
 
 impl TopologyTransformer for SingleNodeTopologyTransformer {
-    fn transform(source_topology: &PluginTopology) -> PluginTopology {
+    fn transform(&self, source_topology: &PluginTopology) -> PluginTopology {
         let mut topology = source_topology.clone();
 
         // Use only default single-node tier.
@@ -44,7 +65,8 @@ impl TopologyTransformer for SingleNodeTopologyTransformer {
 
         // Iterate over plugins in source topology and
         // put their services on default tier.
-        for (_, plugin) in topology.plugins.iter_mut() {
+        for (plugin_name, plugin) in topology.plugins.iter_mut() {
+            plugin.migration_context = self.mctx_provider.get_migration_context(plugin_name);
             for (_, service) in plugin.services.iter_mut() {
                 service.tiers = vec![DEFAULT_TIER.into()];
             }
@@ -113,7 +135,7 @@ mod tests {
 
     #[rstest]
     fn test_single_node_topology_transformer(topology: Topology) {
-        let transformed = SingleNodeTopologyTransformer::transform(&topology);
+        let transformed = SingleNodeTopologyTransformer::default().transform(&topology);
 
         let default_tier = transformed.tiers.get(DEFAULT_TIER).unwrap();
 

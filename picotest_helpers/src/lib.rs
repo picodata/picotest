@@ -25,6 +25,7 @@ use std::{
 use topology::PluginTopology;
 use uuid::Uuid;
 
+pub mod migration;
 pub mod topology;
 
 pub type PluginConfigMap = pike::config::PluginConfigMap;
@@ -87,7 +88,7 @@ impl PicotestInstance {
         &self.pg_port
     }
 
-    pub fn properties(&self) -> PicodataInstanceProperties {
+    pub fn properties(&self) -> PicodataInstanceProperties<'_> {
         self.inner.properties()
     }
 
