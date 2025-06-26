@@ -80,11 +80,11 @@ impl MigrationStatement {
     }
 
     pub fn is_pico_up(&self) -> bool {
-        self.original_text == "-- pico.UP"
+        self.original_text.starts_with("-- pico.UP")
     }
 
     pub fn is_pico_down(&self) -> bool {
-        self.original_text == "-- pico.DOWN"
+        self.original_text.starts_with("-- pico.DOWN")
     }
 
     pub fn extract_tier_variables(&self) -> Vec<String> {
@@ -211,13 +211,10 @@ fn extract_up_down_ranges(
     let mut down_range_start = 0;
     let end_range = statements.len();
     for (idx, statement) in statements.iter().enumerate() {
-        if statement.is_line_comment() {
-            if statement.text().starts_with("-- pico.UP") {
-                up_range_start = idx
-            }
-            if statement.text().starts_with("-- pico.DOWN") {
-                down_range_start = idx
-            }
+        if statement.is_pico_up() {
+            up_range_start = idx
+        } else if statement.is_pico_down() {
+            down_range_start = idx
         }
     }
     Ok((
