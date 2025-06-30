@@ -188,7 +188,7 @@ where
         }
         // append and insert statement text
         if let Some(acc_string) = acc.take() {
-            acc = Some(acc_string + line)
+            acc = Some(acc_string + " " + line)
         } else {
             acc = Some(String::from(line));
         }
@@ -396,6 +396,38 @@ mod test {
         assert_eq!(parsed[3].text(), "-- pico.DOWN");
         assert_eq!(parsed[4].text(), "DROP TABLE t;");
         assert_eq!(parsed[5].text(), "DROP TABLE a;");
+    }
+
+    #[rstest]
+    fn migration_file_parse_multiline_2() {
+        let text = r#"
+        -- pico.UP
+        CREATE TABLE auth_sessions (
+            token TEXT NOT NULL,
+            PRIMARY KEY (token)
+        )
+        USING memtx DISTRIBUTED BY (token)
+        IN TIER @_plugin_config.router_tier
+        OPTION (TIMEOUT = 3.0);
+
+        -- pico.DOWN
+        DROP TABLE auth_sessions;
+        "#;
+        let parsed = parse_migration_text(text).unwrap();
+        assert_eq!(parsed.len(), 4);
+        assert!(parsed[0].is_pico_up());
+        assert!(parsed[2].is_pico_down());
+        let fail_variant = "@_plugin_config.router_tierOPTION";
+        assert!(
+            !parsed[1].text().contains(fail_variant),
+            "lines should not be glued together"
+        );
+        let stmt_exp = concat!(
+            "CREATE TABLE auth_sessions ( token TEXT NOT NULL, PRIMARY KEY (token) ) ",
+            "USING memtx DISTRIBUTED BY (token) IN TIER ",
+            "@_plugin_config.router_tier OPTION (TIMEOUT = 3.0);"
+        );
+        assert_eq!(parsed[1].text(), stmt_exp);
     }
 
     #[rstest]
