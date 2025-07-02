@@ -3,6 +3,7 @@ mod helpers;
 use ctor::ctor;
 use helpers::{plugin, TestPlugin};
 use picotest::*;
+use picotest_helpers::{LUA_OUTPUT_FOOTER, LUA_OUTPUT_HEADER};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, sync::OnceLock};
 use uuid::Uuid;
@@ -146,4 +147,71 @@ async fn test_rpc_handle(plugin: &TestPlugin) {
 fn test_run_lua_query(_plugin: &TestPlugin) {
     let res = cluster.instances()[1].run_lua("return 1 + 1").unwrap();
     assert!(res.contains("2"));
+    assert!(!res.contains(LUA_OUTPUT_HEADER));
+    assert!(!res.contains(LUA_OUTPUT_FOOTER));
+}
+
+#[picotest(path = "../tmp/test_plugin")]
+fn test_run_lua_select_and_serialize_output_from_yaml() {
+    // This test creates box and insert some values into it.
+    // Then tries to select those values through Lua query
+    // and deserialize them from YAML.
+
+    let _ = cluster.main()
+        .run_lua(
+            "
+        box.schema.space.create('test_space')
+        box.space.test_space:format({
+            {name = 's', type = 'string'},
+            {name = 'i', type = 'integer'},
+            {name = 'a', type = 'array'},
+            {name = 'm', type = 'map'}
+        })
+        box.space.test_space:create_index('i',{parts={2, type = 'integer'}})
+        box.space.test_space:insert{ 'aaa', -1, {'list_item1', 'list_item2'}, {Completed={'filepath1.dsv'}}}
+        box.space.test_space:insert{ 'bbb', -2, {'list_item1'}, {Completed={'filepath2.dsv'}}}
+        box.space.test_space:insert{ 'ccc', -3, {'string with\\nnew\\n\\nlines'}, {Completed={'filepath2.dsv'}}}",
+        )
+        .expect("Failed to run Lua query");
+
+    let output = cluster
+        .main()
+        .run_lua("box.space.test_space.index.i:select()")
+        .expect("Failed to run Lua query");
+
+    #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+    struct SomeStruct(String, i32, Vec<String>, SomeStatus);
+
+    #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+    #[serde(untagged)]
+    enum SomeStatus {
+        Completed(HashMap<String, Vec<String>>),
+    }
+
+    let actual: Vec<Vec<SomeStruct>> =
+        serde_yaml::from_str(&output).expect("Failed to deserialize struct from YAML string");
+
+    assert_eq!(
+        actual,
+        vec![vec![
+            SomeStruct(
+                "ccc".into(),
+                -3,
+                vec!["string with\nnew\n\nlines".to_string()],
+                SomeStatus::Completed([("Completed".into(), vec!["filepath2.dsv".into()])].into())
+            ),
+            SomeStruct(
+                "bbb".into(),
+                -2,
+                vec!["list_item1".into()],
+                SomeStatus::Completed([("Completed".into(), vec!["filepath2.dsv".into()])].into())
+            ),
+            SomeStruct(
+                "aaa".into(),
+                -1,
+                vec!["list_item1".into(), "list_item2".into()],
+                SomeStatus::Completed([("Completed".into(), vec!["filepath1.dsv".into()])].into())
+            ),
+        ]]
+    )
 }

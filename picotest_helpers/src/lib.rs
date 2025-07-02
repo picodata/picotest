@@ -36,6 +36,10 @@ pub const PICOTEST_USER: &str = "Picotest";
 pub const PICOTEST_USER_IPROTO: &str = "PicotestBin";
 pub const PICOTEST_USER_PASSWORD: &str = "Pic0test";
 
+// Footer and header returned from picodata admin after Lua query is executed.
+pub const LUA_OUTPUT_HEADER: &str = "Language switched to lua";
+pub const LUA_OUTPUT_FOOTER: &str = "Bye\n";
+
 pub fn tmp_dir() -> PathBuf {
     let mut rng = rand::rng();
     PathBuf::from(format!(
@@ -199,10 +203,7 @@ impl PicotestInstance {
         let mut result = String::new();
         let reader = BufReader::new(stdout);
         for line in reader.lines().skip(2) {
-            match line {
-                Ok(l) => result.push_str(&l),
-                Err(e) => return Err(e),
-            }
+            result.push_str(&format!("{}\n", line?));
         }
         picodata_admin.kill()?;
 
@@ -232,7 +233,13 @@ impl PicotestInstance {
     /// }
     /// ```
     pub fn run_lua<T: AsRef<[u8]>>(&self, query: T) -> Result<String, Error> {
-        self.run_query([b"\\lua\n", query.as_ref()].concat())
+        let output = self.run_query([b"\\lua\n", query.as_ref()].concat())?;
+        // Chomp header if exists or keep output as is.
+        let output = output.strip_prefix(LUA_OUTPUT_HEADER).unwrap_or(&output);
+        // Chomp footer if exists or keep output as is.
+        let output = output.strip_suffix(LUA_OUTPUT_FOOTER).unwrap_or(output);
+
+        Ok(output.to_owned())
     }
 
     fn await_picodata_admin(&self) -> Result<Child, Error> {
