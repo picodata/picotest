@@ -3,12 +3,20 @@ mod utils;
 use darling::ast::NestedMeta;
 use darling::{Error, FromMeta};
 use proc_macro::TokenStream;
-use quote::{format_ident, quote};
-use syn::{parse_macro_input, parse_quote, Item};
+use quote::quote;
+use syn::{parse_macro_input, parse_quote, Ident, Item};
 
 fn plugin_timeout_secs_default() -> u64 {
     5
 }
+
+fn parse_attrs<T: FromMeta>(attr: TokenStream) -> Result<T, TokenStream> {
+    NestedMeta::parse_meta_list(attr.into())
+        .map_err(Error::from)
+        .and_then(|attr| T::from_list(&attr))
+        .map_err(|e| TokenStream::from(e.write_errors()))
+}
+
 #[derive(Debug, FromMeta)]
 struct PluginCfg {
     path: Option<String>,
@@ -19,19 +27,9 @@ struct PluginCfg {
 #[proc_macro_attribute]
 pub fn picotest(attr: TokenStream, item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as Item);
-
-    let attr = match NestedMeta::parse_meta_list(attr.into()) {
-        Ok(v) => v,
-        Err(e) => {
-            return TokenStream::from(Error::from(e).write_errors());
-        }
-    };
-
-    let cfg = match PluginCfg::from_list(&attr) {
-        Ok(v) => v,
-        Err(e) => {
-            return TokenStream::from(e.write_errors());
-        }
+    let cfg: PluginCfg = match parse_attrs(attr) {
+        Ok(cfg) => cfg,
+        Err(err) => return err,
     };
 
     let path = cfg.path;
@@ -69,6 +67,8 @@ pub fn picotest(attr: TokenStream, item: TokenStream) -> TokenStream {
     TokenStream::from(quote! (#input))
 }
 
+static UNIT_COUNTER: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(1);
+
 #[proc_macro_attribute]
 pub fn picotest_unit(_: TokenStream, tokens: TokenStream) -> TokenStream {
     match parse_macro_input!(tokens as Item) {
@@ -87,7 +87,13 @@ pub fn picotest_unit(_: TokenStream, tokens: TokenStream) -> TokenStream {
             // Create test runner - it's a wrapper around main test function.
             // This wrapper will call main test routine in a Lua runtime running
             // inside picodata instance.
-            let test_runner_ident = format_ident!("{}_", test_fn.sig.ident);
+            let test_runner_ident = test_fn.sig.ident.clone();
+
+            // Name of the function to be invoked on instance-side as test payload
+            let test_idx = UNIT_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Acquire);
+            let ffi_test_callable = format!("test_impl_{test_idx}_{test_fn_name}");
+            test_fn.sig.ident = Ident::new(&ffi_test_callable, test_fn.sig.ident.span());
+
             let test_runner = quote! {
                 #[test]
                 fn #test_runner_ident() {
@@ -100,7 +106,7 @@ pub fn picotest_unit(_: TokenStream, tokens: TokenStream) -> TokenStream {
 
                     let call_test_fn_query =
                         internal::lua_ffi_call_unit_test(
-                            #test_fn_name, plugin_dylib_path.to_str().unwrap());
+                            #ffi_test_callable, plugin_dylib_path.to_str().unwrap());
 
                     let cluster = picotest::get_or_create_session_cluster(
                         plugin_path.to_str().unwrap().into(),
