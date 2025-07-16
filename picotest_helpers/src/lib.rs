@@ -645,6 +645,14 @@ impl Cluster {
             .expect("Main server failed to start")
     }
 
+    /// Method returns all instances, which belong to certain tier
+    pub fn get_instances_by_tier(&self, tier_name: &str) -> Vec<&PicotestInstance> {
+        self.instances()
+            .iter()
+            .filter(|&instance| instance.tier == tier_name)
+            .collect()
+    }
+
     /// Method returns all running instances of cluster
     pub fn instances(&self) -> &Vec<PicotestInstance> {
         &self.instances
