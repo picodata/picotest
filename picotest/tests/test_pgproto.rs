@@ -25,6 +25,15 @@ fn test_get_instances() {
 }
 
 #[picotest(path = "../tmp/test_plugin")]
+fn test_get_instances_by_tier() {
+    let default_tier_instances = cluster.get_instances_by_tier("default");
+    assert!(default_tier_instances.len() == 4);
+    assert!(default_tier_instances
+        .iter()
+        .all(|instance| instance.tier == "default"));
+}
+
+#[picotest(path = "../tmp/test_plugin")]
 fn test_pg_connection() {
     let conn_string = format!(
         "host=localhost port={} user={} password={}",
