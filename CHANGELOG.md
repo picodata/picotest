@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+
+## [1.7.0]
+
+### Fixed
+
+* Added the ability to get a list of instances by level name
+
+
 ## [1.6.2]
 
 ### Fixed
