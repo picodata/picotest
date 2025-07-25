@@ -323,9 +323,18 @@ impl Cluster {
             .build()?;
 
         debug!("Stopping the cluster with parameters {params:?}");
-        pike::cluster::stop(&params)?;
+        pike::cluster::stop(&params)
+    }
 
-        Ok(())
+    pub fn stop_instance(&self, instance: &PicotestInstance) -> anyhow::Result<()> {
+        let params = StopParamsBuilder::default()
+            .plugin_path(self.plugin_path.clone())
+            .data_dir(self.data_dir.clone())
+            .instance_name(Some(instance.instance_name.clone()))
+            .build()?;
+
+        debug!("Stopping the cluster instance with parameters {params:?}");
+        pike::cluster::stop(&params)
     }
 
     /// Applies passed plugin config to the running cluster through the interface of command
