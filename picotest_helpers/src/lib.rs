@@ -328,6 +328,19 @@ impl Cluster {
         Ok(())
     }
 
+    pub fn stop_instance(&self, instance: &PicotestInstance) -> anyhow::Result<()> {
+        let params = StopParamsBuilder::default()
+            .plugin_path(self.plugin_path.clone())
+            .data_dir(self.data_dir.clone())
+            .instance_name(Some(instance.instance_name.clone()))
+            .build()?;
+
+        debug!("Stopping the cluster instance with parameters {params:?}");
+        pike::cluster::stop(&params)?;
+
+        Ok(())
+    }
+
     /// Applies passed plugin config to the running cluster through the interface of command
     /// "[pike config apply](https://github.com/picodata/pike?tab=readme-ov-file#config-apply)".
     ///

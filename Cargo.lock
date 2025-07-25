@@ -1153,8 +1153,7 @@ dependencies = [
 [[package]]
 name = "picodata-pike"
 version = "2.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d20dfd819ca5c7222d8f8e4e39d83ae21dda4626537f671e712f99d30261441e"
+source = "git+https://github.com/picodata/pike?branch=master#41317b79e6b0aa4e91ba22d55b481a8737c66d65"
 dependencies = [
  "anyhow",
  "clap",
@@ -1177,7 +1176,7 @@ dependencies = [
  "serde_yaml",
  "tar",
  "toml 0.8.23",
- "toml_edit",
+ "toml_edit 0.23.2",
 ]
 
 [[package]]
@@ -1320,7 +1319,7 @@ version = "3.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "edce586971a4dfaa28950c6f18ed55e0406c1ab88bbce2c6f6293a7aaba73d35"
 dependencies = [
- "toml_edit",
+ "toml_edit 0.22.27",
 ]
 
 [[package]]
@@ -1924,7 +1923,7 @@ dependencies = [
  "serde",
  "serde_spanned 0.6.9",
  "toml_datetime 0.6.11",
- "toml_edit",
+ "toml_edit 0.22.27",
 ]
 
 [[package]]
@@ -1971,6 +1970,19 @@ dependencies = [
  "serde_spanned 0.6.9",
  "toml_datetime 0.6.11",
  "toml_write",
+ "winnow",
+]
+
+[[package]]
+name = "toml_edit"
+version = "0.23.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d1dee9dc43ac2aaf7d3b774e2fba5148212bf2bd9374f4e50152ebe9afd03d42"
+dependencies = [
+ "indexmap",
+ "toml_datetime 0.7.0",
+ "toml_parser",
+ "toml_writer",
  "winnow",
 ]
 
