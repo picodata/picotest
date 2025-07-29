@@ -24,6 +24,9 @@ picotest_helpers = { path = "../picotest_helpers", version = "1.7.0" }
 anyhow.workspace = true
 ctor = "0.4.2"
 rstest.workspace = true
+serde.workspace = true
+serde_yaml.workspace = true
+
 
 [dev-dependencies]
 serde.workspace = true
