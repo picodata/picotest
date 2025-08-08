@@ -101,7 +101,7 @@ pub fn picotest_unit(_: TokenStream, tokens: TokenStream) -> TokenStream {
 
                     let plugin_path = internal::plugin_root_dir();
                     let plugin_dylib_path =
-                        internal::plugin_dylib_path(&plugin_path);
+                        internal::plugin_dylib_path(&plugin_path, env!("CARGO_PKG_NAME"));
                     let plugin_topology = internal::get_or_create_unit_test_topology();
 
                     let call_test_fn_query =
