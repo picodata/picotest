@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [1.7.2]
+
+### Fixed
+
+* [Unit] Dylib search is now done by package name
+    Mandatory requirement cdylib
+    Now, for the unit testing system to work correctly, it is mandatory to specify crate-type=["cdylib"] in the [lib] section of the Cargo.toml file
+
 
 ## [1.7.1]
 
