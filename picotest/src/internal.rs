@@ -12,9 +12,7 @@ use picotest_helpers::topology::{
     DEFAULT_TIER,
 };
 use picotest_helpers::Cluster;
-use serde::Deserialize;
 use std::collections::HashMap;
-use std::fs;
 use std::{
     env,
     path::{Path, PathBuf},
@@ -29,33 +27,6 @@ const LIB_EXT: &str = "so";
 const LIB_EXT: &str = "dylib";
 
 const PLUGIN_TOPOLOGY_FILENAME: &str = "topology.toml";
-const PLUGIN_PICODATA_FILENAME: &str = "picodata.yaml";
-
-#[derive(Debug, Deserialize)]
-struct PicodataConf {
-    cluster: ClusterConf,
-}
-
-#[derive(Debug, Deserialize)]
-struct ClusterConf {
-    name: String,
-}
-
-impl PicodataConf {
-    fn cluster_name(&self) -> &String {
-        &self.cluster.name
-    }
-}
-
-fn plugin_dylib_filename() -> String {
-    let plugin_root_dir = plugin_root_dir();
-    let plugin_picodata_path = plugin_picodata_path(&plugin_root_dir);
-    let plugin_picodata_conf = fs::read_to_string(plugin_picodata_path)
-        .expect("Plugin picodata configuration is not found");
-    let config: PicodataConf = serde_yaml::from_str(&plugin_picodata_conf)
-        .expect("Plugin picodata configuration is not valid");
-    format!("lib{}.{LIB_EXT}", config.cluster_name().replace('-', "_"))
-}
 
 pub fn plugin_profile_build_path(plugin_path: &Path) -> PathBuf {
     plugin_path.join("target").join("debug")
@@ -63,17 +34,14 @@ pub fn plugin_profile_build_path(plugin_path: &Path) -> PathBuf {
 
 /// Constructs a path to the shared library of the plugin
 /// located by passed `plugin_path`.
-pub fn plugin_dylib_path(plugin_path: &Path) -> PathBuf {
-    plugin_profile_build_path(plugin_path).join(plugin_dylib_filename())
+pub fn plugin_dylib_path(plugin_path: &Path, package_name: &str) -> PathBuf {
+    let plugin_dylib_filename = format!("lib{}.{LIB_EXT}", package_name.replace('-', "_"));
+    plugin_profile_build_path(plugin_path).join(plugin_dylib_filename)
 }
 
 /// Constructs a path to the topology file of the plugin.
 pub fn plugin_topology_path(plugin_path: &Path) -> PathBuf {
     plugin_path.join(PLUGIN_TOPOLOGY_FILENAME)
-}
-
-pub fn plugin_picodata_path(plugin_path: &Path) -> PathBuf {
-    plugin_path.join(PLUGIN_PICODATA_FILENAME)
 }
 
 /// Returns root directory of the plugin.

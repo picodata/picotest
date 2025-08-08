@@ -201,6 +201,19 @@ fn test_without_picotest_macro() {
 
 Макрос `#[picotest_unit]` используется для написания юнит-тестов для плагинов, созданных с помощью утилиты [`pike`](https://github.com/picodata/pike).
 
+### Требования к конфигурации
+
+Для работы макроса `#[picotest_unit]` крейт должен быть объявлен как библиотека с поддержкой динамической линковки.
+
+В `Cargo.toml` пакета необходимо указать:
+
+```toml
+[lib]
+crate-type = ["cdylib"]
+```
+
+### Примеры использования:
+
 ```rust
 #[picotest_unit]
 fn test_my_http_query() {
