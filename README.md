@@ -425,3 +425,21 @@ fn test_run_query_on_instance() {
     cluster.instances[2].run_lua("box.space.users:select()");
 }
 ```
+
+
+## Принудительная остановка инстанса
+
+Метод `stop_instance` позволяет остановить конкретный экземпляр (instance) внутри кластера Picotest.
+
+
+### Пример использования:
+```rust
+#[picotest]
+fn test_stop_cluster_instance() {
+    // получаем список всех инстансов в кластере
+    let instances = cluster.instances();
+    // останавливаем выбранный инстанс
+    cluster.stop_instance(&instances[1])
+}
+```
+
