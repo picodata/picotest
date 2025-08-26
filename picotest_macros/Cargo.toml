@@ -22,7 +22,7 @@ proc-macro2 = "1.0.96"
 quote = "1.0.40"
 syn = { version = "2.0.104", features = ["full"] }
 rstest.workspace = true
-darling = "0.21.1"
+darling = "0.21.3"
 
 [lib]
 proc-macro = true
