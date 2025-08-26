@@ -872,9 +872,9 @@ checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
 
 [[package]]
 name = "libc"
-version = "0.2.174"
+version = "0.2.175"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1171693293099992e19cddea4e8b849964e9846f4acee11b3948bcc337be8776"
+checksum = "6a82ae493e598baaea5209805c49bbf2ea7de956d50d7da0da1164f9c6d28543"
 
 [[package]]
 name = "libredox"
@@ -1152,9 +1152,9 @@ dependencies = [
 
 [[package]]
 name = "picodata-pike"
-version = "2.6.0"
+version = "2.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "815f721932f02f2d423cd92bbb330a2536523e309b56770cebf66bcf26c14b1c"
+checksum = "05a451e9afd8a815512f4cdc324212a12bdf9439ab5992cfdf459538b959e99f"
 dependencies = [
  "anyhow",
  "clap",
