@@ -1152,9 +1152,9 @@ dependencies = [
 
 [[package]]
 name = "picodata-pike"
-version = "2.7.1"
+version = "2.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "05a451e9afd8a815512f4cdc324212a12bdf9439ab5992cfdf459538b959e99f"
+checksum = "d8b25c377f1155b3628b5dc840bcc1d358488b5cee6e8b43e9e7690703c3984c"
 dependencies = [
  "anyhow",
  "clap",
@@ -1177,7 +1177,7 @@ dependencies = [
  "serde_yaml",
  "tar",
  "toml 0.8.23",
- "toml_edit 0.23.2",
+ "toml_edit 0.23.4",
 ]
 
 [[package]]
@@ -1387,9 +1387,9 @@ dependencies = [
 
 [[package]]
 name = "regex"
-version = "1.11.1"
+version = "1.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b544ef1b4eac5dc2db33ea63606ae9ffcfac26c1416a2806ae0bf5f56b201191"
+checksum = "23d7fd106d8c02486a8d64e778353d1cffe08ce79ac2e82f540c86d0facf6912"
 dependencies = [
  "aho-corasick",
  "memchr",
@@ -1985,9 +1985,9 @@ dependencies = [
 
 [[package]]
 name = "toml_edit"
-version = "0.23.2"
+version = "0.23.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d1dee9dc43ac2aaf7d3b774e2fba5148212bf2bd9374f4e50152ebe9afd03d42"
+checksum = "7211ff1b8f0d3adae1663b7da9ffe396eabe1ca25f0b0bee42b0da29a9ddce93"
 dependencies = [
  "indexmap",
  "toml_datetime 0.7.0",
