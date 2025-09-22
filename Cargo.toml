@@ -11,7 +11,7 @@ exclude = [
 ]
 
 [workspace.dependencies]
-anyhow = { version = "1.0.99" }
+anyhow = { version = "1.0.100" }
 picodata-pike = { version = "2.8.0" }
 rstest = { version = "0.26.1"}
 serde = { version = "1.0.224", features = ["derive"] }
