@@ -4,7 +4,7 @@ use darling::ast::NestedMeta;
 use darling::{Error, FromMeta};
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, parse_quote, Ident, Item};
+use syn::{parse, parse_macro_input, parse_quote, Ident, Item, ItemFn};
 
 fn plugin_timeout_secs_default() -> u64 {
     5
@@ -73,6 +73,7 @@ static UNIT_COUNTER: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicU
 pub fn picotest_unit(_: TokenStream, tokens: TokenStream) -> TokenStream {
     match parse_macro_input!(tokens as Item) {
         Item::Fn(mut test_fn) => {
+            let test_fn_attrs = test_fn.attrs.clone();
             let test_fn_name = test_fn.sig.ident.to_string();
             // We want test routine to be called through FFI.
             // So mark it as 'pub extern "C"'.
@@ -94,7 +95,7 @@ pub fn picotest_unit(_: TokenStream, tokens: TokenStream) -> TokenStream {
             let ffi_test_callable = format!("test_impl_{test_idx}_{test_fn_name}");
             test_fn.sig.ident = Ident::new(&ffi_test_callable, test_fn.sig.ident.span());
 
-            let test_runner = quote! {
+            let tokens = quote! {
                 #[test]
                 fn #test_runner_ident() {
                     use picotest::internal;
@@ -125,6 +126,12 @@ pub fn picotest_unit(_: TokenStream, tokens: TokenStream) -> TokenStream {
                     }
                 }
             };
+
+            let mut test_runner: ItemFn =
+                parse(tokens.into()).expect("Runner routine tokens must be parsed");
+
+            // Preserve attributes added to source test routine.
+            test_runner.attrs.extend(test_fn_attrs);
 
             quote! {
                 #test_fn

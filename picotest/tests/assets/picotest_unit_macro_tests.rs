@@ -14,6 +14,12 @@ pub mod should_success {
     fn test_should_success() {
         println!("Hello from test_should_success");
     }
+
+    #[should_panic]
+    #[picotest::picotest_unit]
+    fn test_should_success_but_panic() {
+        assert!(false);
+    }
 }
 
 pub mod should_fail {
