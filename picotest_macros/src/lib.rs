@@ -18,12 +18,24 @@ fn parse_attrs<T: FromMeta>(attr: TokenStream) -> Result<T, TokenStream> {
         .map_err(|e| TokenStream::from(e.write_errors()))
 }
 
+macro_rules! parse_attrs {
+    ($attr:ident as $ty:ty) => {
+        match parse_attrs::<$ty>($attr) {
+            Ok(obj) => obj,
+            Err(err) => return err,
+        }
+    };
+}
+
 #[derive(Debug, FromMeta)]
 struct PluginCfg {
     path: Option<String>,
     #[darling(default = "plugin_timeout_secs_default")]
     timeout: u64,
 }
+
+#[derive(Debug, FromMeta)]
+struct UnitTestAttributes {}
 
 struct UnitTestFunction {
     func: ItemFn,
@@ -44,10 +56,7 @@ impl Parse for UnitTestFunction {
 #[proc_macro_attribute]
 pub fn picotest(attr: TokenStream, item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as Item);
-    let cfg: PluginCfg = match parse_attrs(attr) {
-        Ok(cfg) => cfg,
-        Err(err) => return err,
-    };
+    let cfg = parse_attrs!(attr as PluginCfg);
 
     let path = cfg.path;
     let timeout_secs = cfg.timeout;
@@ -87,7 +96,8 @@ pub fn picotest(attr: TokenStream, item: TokenStream) -> TokenStream {
 static UNIT_COUNTER: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(1);
 
 #[proc_macro_attribute]
-pub fn picotest_unit(_: TokenStream, tokens: TokenStream) -> TokenStream {
+pub fn picotest_unit(attrs: TokenStream, tokens: TokenStream) -> TokenStream {
+    let _attrs = parse_attrs!(attrs as UnitTestAttributes);
     let mut test_fn = parse_macro_input!(tokens as UnitTestFunction).func;
 
     let test_fn_attrs = test_fn.attrs.clone();
