@@ -114,6 +114,41 @@ true"#
     )
 }
 
+/// Replaces original test implementation in test binary, executes its payload on picodata
+/// instance and passes back result of test run.
+///
+/// ### Arguments
+///  - `package_name` - name of plugin to load into picodata, on picotest_unit side
+///     it should be provided via env!(CARGO_PKG_NAME)
+///  - `test_locator_name` - FFI-exposed function, which stores information about test.
+///     As of now, it calls the test by itself.
+///  - `test_display_name` - fully-qualified test name.
+pub fn execute_test(package_name: &str, test_locator_name: &str, test_display_name: &str) {
+    let plugin_path = plugin_root_dir();
+    let plugin_dylib_path = plugin_dylib_path(&plugin_path, package_name);
+    let plugin_topology = get_or_create_unit_test_topology();
+
+    let call_test_fn_query =
+        lua_ffi_call_unit_test(test_locator_name, plugin_dylib_path.to_str().unwrap());
+
+    let cluster = crate::get_or_create_session_cluster(
+        plugin_path.to_str().unwrap().into(),
+        plugin_topology.into(),
+        0,
+    );
+
+    let output = cluster
+        .run_lua(call_test_fn_query)
+        .expect("Failed to execute query");
+
+    if let Err(err) = verify_unit_test_output(&output) {
+        for l in output.split("----") {
+            println!("[Lua] {l}")
+        }
+        panic!("Test '{test_display_name}' exited with failure: {}", err);
+    }
+}
+
 pub fn verify_unit_test_output(output: &str) -> anyhow::Result<()> {
     if output.contains("cannot open shared object file") {
         bail!("failed to open plugin shared library")
