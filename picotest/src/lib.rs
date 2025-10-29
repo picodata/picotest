@@ -6,6 +6,7 @@ pub use rstest::*;
 pub use std::{panic, path::PathBuf, sync::OnceLock, time::Duration};
 
 pub mod internal;
+pub mod runner;
 
 pub static SESSION_CLUSTER: OnceLock<Cluster> = OnceLock::new();
 

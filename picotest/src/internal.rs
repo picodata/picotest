@@ -105,13 +105,27 @@ pub fn lua_ffi_call_unit_test(test_fn_name: &str, plugin_dylib_path: &str) -> St
 "[*] Running unit-test '{test_fn_name}'"
 
 ffi = require("ffi")
-ffi.cdef[[void {test_fn_name}();]]
+ffi.cdef[[void ({test_fn_name})();]]
 dylib = "{plugin_dylib_path}"
 ffi.load(dylib).{test_fn_name}()
 
 "[*] Test '{test_fn_name}' has been finished"
 true"#
     )
+}
+
+/// Replaces original test implementation in test binary, executes its payload on picodata
+/// instance and passes back result of test run.
+///
+/// ### Arguments
+///  - `package_name` - name of plugin to load into picodata, on picotest_unit side
+///     it should be provided via env!(CARGO_PKG_NAME)
+///  - `test_locator_name` - FFI-exposed function, which stores information about test.
+///     As of now, it calls the test by itself.
+///  - `test_display_name` - fully-qualified test name.
+pub fn execute_test(package_name: &str, test_locator_name: &str, test_display_name: &str) {
+    let runner = crate::runner::get_test_runner(package_name);
+    runner.execute_unit(test_display_name, test_locator_name);
 }
 
 pub fn verify_unit_test_output(output: &str) -> anyhow::Result<()> {

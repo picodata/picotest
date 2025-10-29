@@ -4,7 +4,8 @@ use darling::ast::NestedMeta;
 use darling::{Error, FromMeta};
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse, parse_macro_input, parse_quote, Ident, Item, ItemFn};
+use syn::parse::{Parse, ParseStream};
+use syn::{parse_macro_input, parse_quote, Error as SynError, Ident, Item, ItemFn};
 
 fn plugin_timeout_secs_default() -> u64 {
     5
@@ -17,6 +18,15 @@ fn parse_attrs<T: FromMeta>(attr: TokenStream) -> Result<T, TokenStream> {
         .map_err(|e| TokenStream::from(e.write_errors()))
 }
 
+macro_rules! parse_attrs {
+    ($attr:ident as $ty:ty) => {
+        match parse_attrs::<$ty>($attr) {
+            Ok(obj) => obj,
+            Err(err) => return err,
+        }
+    };
+}
+
 #[derive(Debug, FromMeta)]
 struct PluginCfg {
     path: Option<String>,
@@ -24,13 +34,30 @@ struct PluginCfg {
     timeout: u64,
 }
 
+#[derive(Debug, FromMeta)]
+struct UnitTestAttributes {
+}
+
+struct UnitTestFunction {
+    func: ItemFn,
+}
+
+impl Parse for UnitTestFunction {
+    fn parse(input: ParseStream) -> Result<Self, SynError> {
+        let func = input.parse::<ItemFn>().map_err(|err| {
+            SynError::new(
+                err.span(),
+                "The #[picotest_unit] macro is only valid when called on a function.",
+            )
+        })?;
+        Ok(UnitTestFunction { func })
+    }
+}
+
 #[proc_macro_attribute]
 pub fn picotest(attr: TokenStream, item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as Item);
-    let cfg: PluginCfg = match parse_attrs(attr) {
-        Ok(cfg) => cfg,
-        Err(err) => return err,
-    };
+    let cfg = parse_attrs!(attr as PluginCfg);
 
     let path = cfg.path;
     let timeout_secs = cfg.timeout;
@@ -70,75 +97,51 @@ pub fn picotest(attr: TokenStream, item: TokenStream) -> TokenStream {
 static UNIT_COUNTER: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(1);
 
 #[proc_macro_attribute]
-pub fn picotest_unit(_: TokenStream, tokens: TokenStream) -> TokenStream {
-    match parse_macro_input!(tokens as Item) {
-        Item::Fn(mut test_fn) => {
-            let test_fn_attrs = test_fn.attrs.clone();
-            let test_fn_name = test_fn.sig.ident.to_string();
-            // We want test routine to be called through FFI.
-            // So mark it as 'pub extern "C"'.
-            test_fn.vis = parse_quote! { pub };
-            test_fn.sig.abi = parse_quote! { extern "C" };
-            // Set no mangle attribute to avoid spoiling of function signature.
-            test_fn.attrs = vec![
-                parse_quote! { #[allow(dead_code)]  },
-                parse_quote! { #[unsafe(no_mangle)] },
-            ];
+pub fn picotest_unit(attrs: TokenStream, tokens: TokenStream) -> TokenStream {
+    let _attrs = parse_attrs!(attrs as UnitTestAttributes);
+    let test_fn = parse_macro_input!(tokens as UnitTestFunction).func;
 
-            // Create test runner - it's a wrapper around main test function.
-            // This wrapper will call main test routine in a Lua runtime running
-            // inside picodata instance.
-            let test_runner_ident = test_fn.sig.ident.clone();
+    let test_fn_attrs = test_fn.attrs.clone();
+    let test_fn_ident = test_fn.sig.ident.clone();
+    let test_fn_block = test_fn.block;
+    let test_fn_name = test_fn.sig.ident.to_string();
 
-            // Name of the function to be invoked on instance-side as test payload
-            let test_idx = UNIT_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Acquire);
-            let ffi_test_callable = format!("test_impl_{test_idx}_{test_fn_name}");
-            test_fn.sig.ident = Ident::new(&ffi_test_callable, test_fn.sig.ident.span());
+    // Name of the function to be invoked on instance-side to obtain test information
+    let test_idx = UNIT_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Acquire);
+    let test_locator_name = format!("test_impl_{test_idx}_{test_fn_name}");
+    let test_locator_ident = Ident::new(&test_locator_name, test_fn_ident.span());
 
-            let tokens = quote! {
-                #[test]
-                fn #test_runner_ident() {
-                    use picotest::internal;
-
-                    let plugin_path = internal::plugin_root_dir();
-                    let plugin_dylib_path =
-                        internal::plugin_dylib_path(&plugin_path, env!("CARGO_PKG_NAME"));
-                    let plugin_topology = internal::get_or_create_unit_test_topology();
-
-                    let call_test_fn_query =
-                        internal::lua_ffi_call_unit_test(
-                            #ffi_test_callable, plugin_dylib_path.to_str().unwrap());
-
-                    let cluster = picotest::get_or_create_session_cluster(
-                        plugin_path.to_str().unwrap().into(),
-                        plugin_topology.into(),
-                        0
-                    );
-
-                    let output = cluster.run_lua(call_test_fn_query)
-                        .expect("Failed to execute query");
-
-                    if let Err(err) = internal::verify_unit_test_output(&output) {
-                        for l in output.split("----") {
-                            println!("[Lua] {l}")
-                        }
-                        panic!("Test '{}' exited with failure: {}", #test_fn_name, err);
-                    }
-                }
-            };
-
-            let mut test_runner: ItemFn =
-                parse(tokens.into()).expect("Runner routine tokens must be parsed");
-
-            // Preserve attributes added to source test routine.
-            test_runner.attrs.extend(test_fn_attrs);
-
-            quote! {
-                #test_fn
-                #test_runner
-            }
-            .into()
+    // Render 2 functions:
+    // 1. Exported test function locator, which can be accessed via lua on demand to
+    //    run non-exported function with test payload. Locator name uses autogenerated
+    //    name, as procedural macro can not resolve current path with std::module_path!()
+    //    due to macro expansion ordering.
+    // 2. Test function with same name this macro was provided. Depending on build
+    //    profile (test or non-test) this function does contain either client side
+    //    of test (which starts picodata cluster, setups plugin and enters instance via lua),
+    //    or server side of test (with payload we have been told to wrap)
+    quote! {
+        #[allow(dead_code)]
+        #[unsafe(no_mangle)]
+        pub extern "C" fn #test_locator_ident() -> fn() {
+            #test_fn_ident
         }
-        _ => panic!("The #[picotest_unit] macro is only valid when called on a function."),
+
+        #[cfg_attr(test,test)]
+        #[cfg_attr(not(test),inline(never))]
+        #( #test_fn_attrs )*
+        fn #test_fn_ident() {
+            #[cfg(not(test))]
+            {
+                #test_fn_block
+            }
+            #[cfg(test)] 
+            {
+                const TEST_FULL_NAME: &'static str = concat!(std::module_path!(), "::", #test_fn_name);
+                let (pkg_name, test_name) = TEST_FULL_NAME.split_once("::").unwrap();
+                picotest::internal::execute_test(pkg_name, #test_locator_name, test_name);
+            }
+        }
     }
+    .into()
 }
