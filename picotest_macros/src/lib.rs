@@ -123,8 +123,8 @@ pub fn picotest_unit(attrs: TokenStream, tokens: TokenStream) -> TokenStream {
     quote! {
         #[allow(dead_code)]
         #[unsafe(no_mangle)]
-        pub extern "C" fn #test_locator_ident() {
-            #test_fn_ident();
+        pub extern "C" fn #test_locator_ident() -> fn() {
+            #test_fn_ident
         }
 
         #[cfg_attr(test,test)]
@@ -138,11 +138,8 @@ pub fn picotest_unit(attrs: TokenStream, tokens: TokenStream) -> TokenStream {
             #[cfg(test)] 
             {
                 const TEST_FULL_NAME: &'static str = concat!(std::module_path!(), "::", #test_fn_name);
-                picotest::internal::execute_test(
-                    env!("CARGO_PKG_NAME"), 
-                    #test_locator_name, 
-                    TEST_FULL_NAME,
-                );
+                let (pkg_name, test_name) = TEST_FULL_NAME.split_once("::").unwrap();
+                picotest::internal::execute_test(pkg_name, #test_locator_name, test_name);
             }
         }
     }

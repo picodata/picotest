@@ -105,7 +105,7 @@ pub fn lua_ffi_call_unit_test(test_fn_name: &str, plugin_dylib_path: &str) -> St
 "[*] Running unit-test '{test_fn_name}'"
 
 ffi = require("ffi")
-ffi.cdef[[void {test_fn_name}();]]
+ffi.cdef[[void ({test_fn_name})();]]
 dylib = "{plugin_dylib_path}"
 ffi.load(dylib).{test_fn_name}()
 
@@ -124,29 +124,8 @@ true"#
 ///     As of now, it calls the test by itself.
 ///  - `test_display_name` - fully-qualified test name.
 pub fn execute_test(package_name: &str, test_locator_name: &str, test_display_name: &str) {
-    let plugin_path = plugin_root_dir();
-    let plugin_dylib_path = plugin_dylib_path(&plugin_path, package_name);
-    let plugin_topology = get_or_create_unit_test_topology();
-
-    let call_test_fn_query =
-        lua_ffi_call_unit_test(test_locator_name, plugin_dylib_path.to_str().unwrap());
-
-    let cluster = crate::get_or_create_session_cluster(
-        plugin_path.to_str().unwrap().into(),
-        plugin_topology.into(),
-        0,
-    );
-
-    let output = cluster
-        .run_lua(call_test_fn_query)
-        .expect("Failed to execute query");
-
-    if let Err(err) = verify_unit_test_output(&output) {
-        for l in output.split("----") {
-            println!("[Lua] {l}")
-        }
-        panic!("Test '{test_display_name}' exited with failure: {}", err);
-    }
+    let runner = crate::runner::get_test_runner(package_name);
+    runner.execute_unit(test_display_name, test_locator_name);
 }
 
 pub fn verify_unit_test_output(output: &str) -> anyhow::Result<()> {
