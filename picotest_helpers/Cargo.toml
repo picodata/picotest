@@ -27,7 +27,7 @@ anyhow.workspace = true
 toml = "0.9.8"
 rmpv = "1.0.0"
 rusty_tarantool = "0.3.0"
-bytes = { version = "1.10.1", features = ["serde"] }
+bytes = { version = "1.11.0", features = ["serde"] }
 serde.workspace = true
 rmp-serde.workspace = true
 
