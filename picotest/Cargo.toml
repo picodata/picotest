@@ -30,7 +30,7 @@ serde.workspace = true
 [dev-dependencies]
 serde.workspace = true
 rmp-serde.workspace = true
-tokio = "1.48.0"
+tokio = "1.49.0"
 wait-timeout = "0.2.1"
 uuid = { version = "1.19.0", features = ["v4"] }
 constcat = "0.6.1"
