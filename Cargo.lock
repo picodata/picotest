@@ -821,9 +821,9 @@ dependencies = [
 
 [[package]]
 name = "libc"
-version = "0.2.177"
+version = "0.2.180"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2874a2af47a2325c2001a6e6fad9b16a53b802102b528163885171cf92b15976"
+checksum = "bcc35a38544a891a5f7c865aca548a982ccb3b8650a5b06d0fd33a10283c56fc"
 
 [[package]]
 name = "libredox"
@@ -1093,9 +1093,9 @@ dependencies = [
 
 [[package]]
 name = "picodata-pike"
-version = "3.0.0"
+version = "3.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9c422a2fa17952faad51cb5a9996e35bf876ec748920879907af273ab5beffb5"
+checksum = "84dc464f9a7f96c39cb4f3a1b1f6cc02ca4a6b60fd8a0fea6b41209a1310353f"
 dependencies = [
  "anyhow",
  "clap",
@@ -1119,7 +1119,7 @@ dependencies = [
  "tar",
  "terminal_size",
  "toml",
- "toml_edit 0.23.7",
+ "toml_edit 0.24.0+spec-1.1.0",
 ]
 
 [[package]]
@@ -1901,9 +1901,9 @@ dependencies = [
 
 [[package]]
 name = "toml_edit"
-version = "0.23.7"
+version = "0.24.0+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6485ef6d0d9b5d0ec17244ff7eb05310113c3f316f2d14200d4de56b3cb98f8d"
+checksum = "8c740b185920170a6d9191122cafef7010bd6270a3824594bff6784c04d7f09e"
 dependencies = [
  "indexmap",
  "toml_datetime 0.7.5+spec-1.1.0",
