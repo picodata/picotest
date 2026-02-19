@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [1.9.0]
+
+### Changed
+
+* Bump pike version from 2.8.0 to 3.1.0
+
 ## [1.8.1]
 
 ### Fixed
