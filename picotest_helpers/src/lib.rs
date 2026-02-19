@@ -6,7 +6,7 @@ use pike::cluster::{
 };
 use pike::config::ApplyParamsBuilder;
 use rand::distr::Alphanumeric;
-use rand::Rng;
+use rand::RngExt;
 use rmpv::Value;
 use rusty_tarantool::tarantool::{ClientConfig, ExecWithParamaters, TarantoolResponse};
 use serde::de::DeserializeOwned;
