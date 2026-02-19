@@ -130,6 +130,7 @@ mod tests {
             tiers,
             plugins,
             enviroment,
+            ..Default::default()
         }
     }
 
