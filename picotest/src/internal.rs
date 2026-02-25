@@ -17,7 +17,6 @@ use std::{
     env,
     path::{Path, PathBuf},
     sync::OnceLock,
-    time::Duration,
 };
 
 #[cfg(target_os = "linux")]
@@ -133,12 +132,10 @@ pub fn verify_unit_test_output(output: &str) -> anyhow::Result<()> {
 ///   If `None`, directory is identified automatically.
 /// - `plugin_topology` - instance of `PluginTopology`.
 ///   If `None`, topology is parsed from default path.
-/// - `timeout` - timeout after cluster start.
 ///
 pub fn create_cluster(
     plugin_path: Option<PathBuf>,
     plugin_topology: Option<PluginTopology>,
-    timout: Duration,
 ) -> Cluster {
     // Look up plugin root directory automatically
     // unless explicitly specified.
@@ -149,7 +146,7 @@ pub fn create_cluster(
         || parse_topology(&plugin_topology_path(&plugin_path)),
         Result::Ok,
     );
-    Cluster::new(plugin_path, plugin_topology.unwrap(), timout)
+    Cluster::new(plugin_path, plugin_topology.unwrap())
         .expect("Failed to create the cluster")
         .run()
         .expect("Failed to start the cluster")

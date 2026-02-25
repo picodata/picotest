@@ -16,7 +16,6 @@ use std::ffi::OsStr;
 use std::fs;
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
-use std::thread;
 use std::{
     io::Error,
     process::{Child, Command, Stdio},
@@ -275,7 +274,6 @@ pub struct Cluster {
     pub uuid: Uuid,
     pub plugin_path: PathBuf,
     pub data_dir: PathBuf,
-    pub timeout: Duration,
     topology: Topology,
     instances: Vec<PicotestInstance>,
 }
@@ -289,11 +287,7 @@ impl Drop for Cluster {
 }
 
 impl Cluster {
-    pub fn new(
-        plugin_path: PathBuf,
-        topology: PluginTopology,
-        timeout: Duration,
-    ) -> anyhow::Result<Self> {
+    pub fn new(plugin_path: PathBuf, topology: PluginTopology) -> anyhow::Result<Self> {
         let data_dir = tmp_dir();
 
         if let Err(err) = fs::remove_dir_all(plugin_path.join(data_dir.parent().unwrap())) {
@@ -304,7 +298,6 @@ impl Cluster {
             uuid: Uuid::new_v4(),
             plugin_path,
             data_dir,
-            timeout,
             topology,
             instances: Default::default(),
         };
@@ -524,10 +517,7 @@ impl Cluster {
         );
         std::mem::swap(&mut self.instances, &mut instances);
 
-        self.wait()?;
         self.create_picotest_users();
-        //wait user timeout
-        thread::sleep(self.timeout);
 
         Ok(self)
     }
@@ -535,60 +525,6 @@ impl Cluster {
     pub fn recreate(self) -> anyhow::Result<Self> {
         self.stop()?;
         self.run()
-    }
-
-    fn wait(&self) -> anyhow::Result<()> {
-        let timeout = Duration::from_secs(60);
-        let start_time = Instant::now();
-
-        debug!(
-            "Awaiting of cluster readiness (timeout {}s)",
-            timeout.as_secs()
-        );
-
-        loop {
-            let mut picodata_admin: Child = self.main().await_picodata_admin()?;
-            let stdout = picodata_admin
-                .stdout
-                .take()
-                .expect("Failed to capture stdout");
-            assert!(start_time.elapsed() < timeout, "cluster setup timeouted");
-
-            let queries = vec![
-                r"SELECT enabled FROM _pico_plugin;",
-                r"SELECT current_state FROM _pico_instance;",
-                r"\help;",
-            ];
-
-            {
-                let picodata_stdin = picodata_admin.stdin.as_mut().unwrap();
-                for query in queries {
-                    picodata_stdin.write_all(query.as_bytes()).unwrap();
-                }
-                picodata_admin.wait().unwrap();
-            }
-
-            let mut plugin_ready = false;
-            let mut can_connect = false;
-
-            let reader = BufReader::new(stdout);
-            for line in reader.lines() {
-                let line = line.expect("Failed to read picodata stdout");
-                if line.contains("true") {
-                    plugin_ready = true;
-                }
-                if line.contains("Connected to admin console by socket") {
-                    can_connect = true;
-                }
-            }
-
-            picodata_admin.kill().unwrap();
-            if can_connect && plugin_ready {
-                return Ok(());
-            }
-
-            thread::sleep(Duration::from_secs(10));
-        }
     }
 
     /// Executes an SQL query through the picodata admin console.
