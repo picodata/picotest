@@ -276,6 +276,7 @@ pub struct Cluster {
     pub data_dir: PathBuf,
     topology: Topology,
     instances: Vec<PicotestInstance>,
+    picodata_path: PathBuf,
 }
 
 impl Drop for Cluster {
@@ -287,7 +288,11 @@ impl Drop for Cluster {
 }
 
 impl Cluster {
-    pub fn new(plugin_path: PathBuf, topology: PluginTopology) -> anyhow::Result<Self> {
+    pub fn new(
+        plugin_path: PathBuf,
+        topology: PluginTopology,
+        picodata_path: PathBuf,
+    ) -> anyhow::Result<Self> {
         let data_dir = tmp_dir();
 
         if let Err(err) = fs::remove_dir_all(plugin_path.join(data_dir.parent().unwrap())) {
@@ -300,6 +305,7 @@ impl Cluster {
             data_dir,
             topology,
             instances: Default::default(),
+            picodata_path,
         };
 
         Ok(cluster)
@@ -500,6 +506,7 @@ impl Cluster {
             .plugin_path(self.plugin_path.clone())
             .data_dir(self.data_dir.clone())
             .topology(self.topology.clone())
+            .picodata_path(self.picodata_path.clone())
             .use_release(false)
             .build()?;
 

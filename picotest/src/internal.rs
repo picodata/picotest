@@ -146,7 +146,18 @@ pub fn create_cluster(
         || parse_topology(&plugin_topology_path(&plugin_path)),
         Result::Ok,
     );
-    Cluster::new(plugin_path, plugin_topology.unwrap())
+
+    let picodata_path = std::env::var("PICODATA_PATH")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| {
+            println!(
+                "PICODATA_PATH environment variable is not set, \
+                using default picodata binary from PATH"
+            );
+            PathBuf::from("picodata")
+        });
+
+    Cluster::new(plugin_path, plugin_topology.unwrap(), picodata_path)
         .expect("Failed to create the cluster")
         .run()
         .expect("Failed to start the cluster")
