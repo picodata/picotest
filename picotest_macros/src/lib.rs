@@ -6,10 +6,6 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse, parse_macro_input, parse_quote, Ident, Item, ItemFn};
 
-fn plugin_timeout_secs_default() -> u64 {
-    5
-}
-
 fn parse_attrs<T: FromMeta>(attr: TokenStream) -> Result<T, TokenStream> {
     NestedMeta::parse_meta_list(attr.into())
         .map_err(Error::from)
@@ -20,8 +16,6 @@ fn parse_attrs<T: FromMeta>(attr: TokenStream) -> Result<T, TokenStream> {
 #[derive(Debug, FromMeta)]
 struct PluginCfg {
     path: Option<String>,
-    #[darling(default = "plugin_timeout_secs_default")]
-    timeout: u64,
 }
 
 #[proc_macro_attribute]
@@ -33,16 +27,15 @@ pub fn picotest(attr: TokenStream, item: TokenStream) -> TokenStream {
     };
 
     let path = cfg.path;
-    let timeout_secs = cfg.timeout;
     let input = match input {
-        Item::Fn(func) => Item::Fn(utils::process_test_function(func, &path, timeout_secs)),
+        Item::Fn(func) => Item::Fn(utils::process_test_function(func, &path)),
         Item::Mod(mut m) => {
             let (brace, items) = m.content.unwrap();
             let mut items: Vec<Item> = items
                 .into_iter()
                 .map(|item| {
                     if let Item::Fn(func) = item {
-                        Item::Fn(utils::process_test_function(func, &path, timeout_secs))
+                        Item::Fn(utils::process_test_function(func, &path))
                     } else {
                         item
                     }
@@ -112,7 +105,6 @@ pub fn picotest_unit(_: TokenStream, tokens: TokenStream) -> TokenStream {
                     let cluster = picotest::get_or_create_session_cluster(
                         plugin_path.to_str().unwrap().into(),
                         plugin_topology.into(),
-                        0
                     );
 
                     let output = cluster.run_lua(call_test_fn_query)

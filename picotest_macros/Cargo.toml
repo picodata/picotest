@@ -20,7 +20,7 @@ authors = [
 [dependencies]
 proc-macro2 = "1.0.106"
 quote = "1.0.44"
-syn = { version = "2.0.117", features = ["full"] }
+syn = { version = "2.0.116", features = ["full"] }
 rstest.workspace = true
 darling = "0.23.0"
 
