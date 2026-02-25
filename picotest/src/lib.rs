@@ -12,24 +12,19 @@ pub static SESSION_CLUSTER: OnceLock<Cluster> = OnceLock::new();
 pub type PluginConfigMap = picotest_helpers::PluginConfigMap;
 
 #[fixture]
-pub fn cluster(
-    #[default(None)] plugin_path: Option<&str>,
-    #[default(5)] timeout_secs: u64,
-) -> &'static Cluster {
-    get_or_create_session_cluster(plugin_path, None, timeout_secs)
+pub fn cluster(#[default(None)] plugin_path: Option<&str>) -> &'static Cluster {
+    get_or_create_session_cluster(plugin_path, None)
 }
 
 pub fn get_or_create_session_cluster(
     plugin_path: Option<&str>,
     plugin_topology: Option<&PluginTopology>,
-    timeout_secs: u64,
 ) -> &'static Cluster {
     SESSION_CLUSTER.get_or_init(|| {
         let plugin_path = plugin_path.map(PathBuf::from);
         let plugin_topology = plugin_topology.cloned();
-        let timeout = Duration::from_secs(timeout_secs);
 
-        internal::create_cluster(plugin_path, plugin_topology, timeout)
+        internal::create_cluster(plugin_path, plugin_topology)
     })
 }
 
