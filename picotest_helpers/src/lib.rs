@@ -17,7 +17,7 @@ use std::fs;
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::{
-    io::Error,
+    io::{Error, Read},
     process::{Child, Command, Stdio},
     time::{Duration, Instant},
 };
@@ -37,7 +37,7 @@ pub const PICOTEST_USER_PASSWORD: &str = "Pic0test";
 
 // Footer and header returned from picodata admin after Lua query is executed.
 pub const LUA_OUTPUT_HEADER: &str = "Language switched to lua";
-pub const LUA_OUTPUT_FOOTER: &str = "Bye\n";
+pub const OUTPUT_FOOTER: &str = "Bye";
 
 pub fn tmp_dir() -> PathBuf {
     let mut rng = rand::rng();
@@ -160,6 +160,15 @@ impl PicotestInstance {
         Ok(response_decoded)
     }
 
+    fn read_output<T: Read>(&self, reader: T) -> Result<String, Error> {
+        BufReader::new(reader)
+            .lines()
+            .skip(2)
+            .take_while(|line| line.as_ref().is_ok_and(|l| l != OUTPUT_FOOTER))
+            .collect::<Result<Vec<_>, _>>()
+            .map(|lines| lines.join("\n"))
+    }
+
     fn run_query<T: AsRef<[u8]>>(&self, query: T) -> Result<String, Error> {
         let mut picodata_admin = self.await_picodata_admin()?;
 
@@ -167,16 +176,23 @@ impl PicotestInstance {
             .stdout
             .take()
             .expect("Failed to capture stdout");
+        let stderr = picodata_admin
+            .stderr
+            .take()
+            .expect("Failed to capture stderr");
         {
             let picodata_stdin = picodata_admin.stdin.as_mut().unwrap();
             picodata_stdin.write_all(query.as_ref())?;
             picodata_admin.wait()?;
         }
 
-        let mut result = String::new();
-        let reader = BufReader::new(stdout);
-        for line in reader.lines().skip(2) {
-            result.push_str(&format!("{}\n", line?));
+        let result = self.read_output(stdout)?;
+        if result.is_empty() {
+            let err_output = self.read_output(stderr)?;
+            if !err_output.is_empty() {
+                picodata_admin.kill()?;
+                return Err(Error::other(err_output));
+            }
         }
         picodata_admin.kill()?;
 
@@ -209,8 +225,6 @@ impl PicotestInstance {
         let output = self.run_query([b"\\lua\n", query.as_ref()].concat())?;
         // Chomp header if exists or keep output as is.
         let output = output.strip_prefix(LUA_OUTPUT_HEADER).unwrap_or(&output);
-        // Chomp footer if exists or keep output as is.
-        let output = output.strip_suffix(LUA_OUTPUT_FOOTER).unwrap_or(output);
 
         Ok(output.to_owned())
     }
@@ -259,6 +273,7 @@ impl PicotestInstance {
                 .arg(self.socket_path.clone())
                 .stdin(Stdio::piped())
                 .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
                 .spawn();
 
             match picodata_admin {

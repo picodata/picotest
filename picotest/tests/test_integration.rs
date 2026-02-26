@@ -3,7 +3,7 @@ mod helpers;
 use ctor::ctor;
 use helpers::{plugin, TestPlugin};
 use picotest::*;
-use picotest_helpers::{LUA_OUTPUT_FOOTER, LUA_OUTPUT_HEADER};
+use picotest_helpers::{LUA_OUTPUT_HEADER, OUTPUT_FOOTER};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, sync::OnceLock};
 use uuid::Uuid;
@@ -108,6 +108,12 @@ mod test_mod {
     }
 }
 
+#[picotest(path = "../tmp/test_plugin")]
+fn test_select_from_missing_table() {
+    let result = cluster.run_query("SELECT * FROM table1");
+    assert!(result.is_err(), "result : {:?}", result);
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct User {
     name: String,
@@ -148,7 +154,7 @@ fn test_run_lua_query(_plugin: &TestPlugin) {
     let res = cluster.instances()[1].run_lua("return 1 + 1").unwrap();
     assert!(res.contains("2"));
     assert!(!res.contains(LUA_OUTPUT_HEADER));
-    assert!(!res.contains(LUA_OUTPUT_FOOTER));
+    assert!(!res.contains(OUTPUT_FOOTER));
 }
 
 #[picotest(path = "../tmp/test_plugin")]
