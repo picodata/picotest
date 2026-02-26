@@ -108,6 +108,12 @@ mod test_mod {
     }
 }
 
+#[picotest(path = "../tmp/test_plugin")]
+fn test_select_from_missing_table() {
+    let result = cluster.run_query("SELECT * FROM table1");
+    assert!(result.is_err(), "result : {:?}", result);
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct User {
     name: String,
