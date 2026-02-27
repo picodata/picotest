@@ -493,7 +493,7 @@ async fn test_rpc_handle() {
 ```rust
 #[picotest]
 fn test_query() {
-    cluster.run_query("SELECT * FROM users"); // Выполнение SQL запроса
+    cluster.run_sql("SELECT * FROM users"); // Выполнение SQL запроса
     cluster.run_lua("box.space.users:select()"); // Выполнение LUA кода
 }
 ```
@@ -503,7 +503,7 @@ fn test_query() {
 ```rust
 #[picotest]
 fn test_run_query_on_instance() {
-    cluster.instances[1].run_query("SELECT * FROM users");
+    cluster.instances[1].run_sql("SELECT * FROM users");
     cluster.instances[2].run_lua("box.space.users:select()");
 }
 ```

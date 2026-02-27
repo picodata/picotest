@@ -160,33 +160,7 @@ impl PicotestInstance {
         Ok(response_decoded)
     }
 
-    /// Executes an SQL query through the picodata admin console.
-    ///
-    /// # Workflow
-    /// 1. Establishes connection with the admin console (`await_picodata_admin`)
-    /// 2. Writes the query to the process's stdin
-    /// 3. Reads the result from stdout, skipping the first 2 lines (typically headers)
-    /// 4. Terminates the process after receiving the result
-    ///
-    /// # Arguments
-    /// * `query` - SQL query as a byte slice or convertible type
-    ///
-    /// # Return Value
-    /// `Result<String, Error>` where:
-    /// * `Ok(String)` - query execution result
-    /// * `Err(Error)` - I/O or execution error
-    ///
-    /// # Examples
-    /// ```rust,ignore
-    /// use picotest::*;
-    ///
-    /// #[picotest]
-    /// fn run_sql_query() {
-    ///     let result = cluster.instances[0].run_query("SELECT * FROM users").unwrap();
-    ///     println!("{}", result);
-    /// }
-    /// ```
-    pub fn run_query<T: AsRef<[u8]>>(&self, query: T) -> Result<String, Error> {
+    fn run_query<T: AsRef<[u8]>>(&self, query: T) -> Result<String, Error> {
         let mut picodata_admin = self.await_picodata_admin()?;
 
         let stdout = picodata_admin
@@ -239,6 +213,36 @@ impl PicotestInstance {
         let output = output.strip_suffix(LUA_OUTPUT_FOOTER).unwrap_or(output);
 
         Ok(output.to_owned())
+    }
+
+    /// Executes an SQL query through the picodata admin console.
+    ///
+    /// # Workflow
+    /// 1. Establishes connection with the admin console (`await_picodata_admin`)
+    /// 2. Writes the query to the process's stdin
+    /// 3. Reads the result from stdout, skipping the first 2 lines (typically headers)
+    /// 4. Terminates the process after receiving the result
+    ///
+    /// # Arguments
+    /// * `query` - SQL query as a byte slice or convertible type
+    ///
+    /// # Return Value
+    /// `Result<String, Error>` where:
+    /// * `Ok(String)` - query execution result
+    /// * `Err(Error)` - I/O or execution error
+    ///
+    /// # Examples
+    /// ```rust,ignore
+    /// use picotest::*;
+    ///
+    /// #[picotest]
+    /// fn run_sql_query() {
+    ///     let result = cluster.instances[0].run_sql("SELECT * FROM users").unwrap();
+    ///     println!("{}", result);
+    /// }
+    /// ```
+    pub fn run_sql<T: AsRef<[u8]>>(&self, query: T) -> Result<String, Error> {
+        self.run_query(query)
     }
 
     fn await_picodata_admin(&self) -> Result<Child, Error> {
@@ -581,6 +585,10 @@ impl Cluster {
     /// ```
     pub fn run_lua<T: AsRef<[u8]>>(&self, query: T) -> Result<String, Error> {
         self.main().run_lua(query)
+    }
+
+    pub fn run_sql<T: AsRef<[u8]>>(&self, query: T) -> Result<String, Error> {
+        self.main().run_sql(query)
     }
 
     /// Method returns first running cluster instance
