@@ -167,6 +167,10 @@ impl PicotestInstance {
             .stdout
             .take()
             .expect("Failed to capture stdout");
+        let stderr = picodata_admin
+            .stderr
+            .take()
+            .expect("Failed to capture stderr");
         {
             let picodata_stdin = picodata_admin.stdin.as_mut().unwrap();
             picodata_stdin.write_all(query.as_ref())?;
@@ -177,6 +181,17 @@ impl PicotestInstance {
         let reader = BufReader::new(stdout);
         for line in reader.lines().skip(2) {
             result.push_str(&format!("{}\n", line?));
+        }
+        if result.is_empty() {
+            let mut err_output = String::new();
+            let err_reader = BufReader::new(stderr);
+            for line in err_reader.lines().skip(2) {
+                err_output.push_str(&format!("{}\n", line?));
+            }
+            if !err_output.is_empty() {
+                picodata_admin.kill()?;
+                return Err(Error::other(err_output));
+            }
         }
         picodata_admin.kill()?;
 
@@ -259,6 +274,7 @@ impl PicotestInstance {
                 .arg(self.socket_path.clone())
                 .stdin(Stdio::piped())
                 .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
                 .spawn();
 
             match picodata_admin {
