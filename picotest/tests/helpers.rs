@@ -79,6 +79,7 @@ pub fn create_test_plugin(remove_if_exists: bool) -> TestPlugin {
     let crates_to_add = [
         CargoCrate::Path(env!("CARGO_MANIFEST_DIR")),
         CargoCrate::Name("rstest"),
+        CargoCrate::Name("serial_test"),
     ];
 
     for cr in crates_to_add {

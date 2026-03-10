@@ -164,7 +164,6 @@ mod test_mod {
 | Название  | Описание    | Значение по умолчанию |
 |-----------|-------------|-----------------------|
 | `path`    | Путь до директории, содержащей файл топологии плагина ([topology.toml](https://github.com/picodata/pike?tab=readme-ov-file#topologytoml)) | Определяется автоматически |
-| `timeout` | Таймаут перед запуском первого теста (seconds) | 5 |
 
 ### Применение конфигурации плагина к запущенному кластеру Picodata
 
@@ -494,7 +493,7 @@ async fn test_rpc_handle() {
 ```rust
 #[picotest]
 fn test_query() {
-    cluster.run_query("SELECT * FROM users"); // Выполнение SQL запроса
+    cluster.run_sql("SELECT * FROM users"); // Выполнение SQL запроса
     cluster.run_lua("box.space.users:select()"); // Выполнение LUA кода
 }
 ```
@@ -504,7 +503,7 @@ fn test_query() {
 ```rust
 #[picotest]
 fn test_run_query_on_instance() {
-    cluster.instances[1].run_query("SELECT * FROM users");
+    cluster.instances[1].run_sql("SELECT * FROM users");
     cluster.instances[2].run_lua("box.space.users:select()");
 }
 ```

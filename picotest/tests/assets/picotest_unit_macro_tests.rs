@@ -10,14 +10,19 @@
 //!
 
 pub mod should_success {
+    #[allow(unused_imports)]
+    use serial_test::serial;
+
     #[picotest::picotest_unit]
-    fn test_should_success() {
+    #[serial]
+    fn a_test_should_success() {
         println!("Hello from test_should_success");
     }
 
     #[should_panic]
     #[picotest::picotest_unit]
-    fn test_should_success_but_panic() {
+    #[serial]
+    fn z_test_should_success_but_panic() {
         assert!(false);
     }
 }
