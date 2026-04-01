@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [1.9.1]
+
+### Changed
+
+* Remove wait timeout after cluster running
+
 ## [1.9.0]
 
 ### Changed
