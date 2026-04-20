@@ -39,6 +39,11 @@ pub const PICOTEST_USER_PASSWORD: &str = "Pic0test";
 pub const LUA_OUTPUT_HEADER: &str = "Language switched to lua";
 pub const OUTPUT_FOOTER: &str = "Bye";
 
+// Timeout (in seconds) for waiting until vshard is fully initialized and initial
+// resharding has completed.
+pub const DEFAULT_WAIT_VSHARD_TIMEOUT_SECS: u64 = 60;
+pub const DEFAULT_WAIT_VSHARD_ENABLED: bool = true;
+
 pub fn tmp_dir() -> PathBuf {
     let mut rng = rand::rng();
     PathBuf::from(format!(
@@ -296,6 +301,7 @@ pub struct Cluster {
     topology: Topology,
     instances: Vec<PicotestInstance>,
     picodata_path: PathBuf,
+    wait_vshard_discovery: bool,
 }
 
 impl Drop for Cluster {
@@ -325,9 +331,15 @@ impl Cluster {
             topology,
             instances: Default::default(),
             picodata_path,
+            wait_vshard_discovery: DEFAULT_WAIT_VSHARD_ENABLED,
         };
 
         Ok(cluster)
+    }
+
+    pub fn wait_vshard_discovery(mut self, is_enabled: bool) -> Self {
+        self.wait_vshard_discovery = is_enabled;
+        self
     }
 
     pub fn data_dir_path(&self) -> PathBuf {
@@ -526,6 +538,8 @@ impl Cluster {
             .data_dir(self.data_dir.clone())
             .topology(self.topology.clone())
             .picodata_path(self.picodata_path.clone())
+            .wait_vshard_discovery(self.wait_vshard_discovery)
+            .wait_vshard_discovery_timeout(DEFAULT_WAIT_VSHARD_TIMEOUT_SECS)
             .use_release(false)
             .build()?;
 

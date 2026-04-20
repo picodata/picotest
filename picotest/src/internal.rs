@@ -11,8 +11,9 @@ use picotest_helpers::topology::{
     parse_topology, PluginTopology, SingleNodeTopologyTransformer, TopologyTransformer,
     DEFAULT_TIER,
 };
-use picotest_helpers::Cluster;
+use picotest_helpers::{Cluster, DEFAULT_WAIT_VSHARD_ENABLED};
 use std::collections::HashMap;
+use std::env::{var, VarError};
 use std::{
     env,
     path::{Path, PathBuf},
@@ -26,6 +27,9 @@ const LIB_EXT: &str = "so";
 const LIB_EXT: &str = "dylib";
 
 const PLUGIN_TOPOLOGY_FILENAME: &str = "topology.toml";
+
+const ENV_WAIT_VSHARD_DISCOVERY: &str = "WAIT_VSHARD_DISCOVERY";
+const ENV_PICODATA_PATH: &str = "PICODATA_PATH";
 
 pub fn plugin_profile_build_path(plugin_path: &Path) -> PathBuf {
     plugin_path.join("target").join("debug")
@@ -147,7 +151,7 @@ pub fn create_cluster(
         Result::Ok,
     );
 
-    let picodata_path = std::env::var("PICODATA_PATH")
+    let picodata_path = var(ENV_PICODATA_PATH)
         .map(PathBuf::from)
         .unwrap_or_else(|_| {
             println!(
@@ -157,8 +161,16 @@ pub fn create_cluster(
             PathBuf::from("picodata")
         });
 
+    let wait_vshard_discovery = var(ENV_WAIT_VSHARD_DISCOVERY)
+        .map(|v| v.parse::<bool>().expect("invalid boolean"))
+        .unwrap_or_else(|e| match e {
+            VarError::NotPresent => DEFAULT_WAIT_VSHARD_ENABLED,
+            _ => panic!("failed to read {ENV_WAIT_VSHARD_DISCOVERY}: {e}"),
+        });
+
     Cluster::new(plugin_path, plugin_topology.unwrap(), picodata_path)
         .expect("Failed to create the cluster")
+        .wait_vshard_discovery(wait_vshard_discovery)
         .run()
         .expect("Failed to start the cluster")
 }
