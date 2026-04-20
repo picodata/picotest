@@ -8,7 +8,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 
 ### Added
 
-- Add ability to wait for initial resharding during cluster startup
+* Add ability to wait for initial resharding during cluster startup
+
+### Changed
+
+* Bump Pike version to 4.0.1
+* Bump Picodata to 26.1.1 in CI
 
 ## [1.9.1]
 
