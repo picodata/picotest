@@ -532,7 +532,7 @@ impl Cluster {
         let data_dir = self.data_dir_path();
 
         debug!("Starting the cluster with parameters {params:?}");
-        let mut instances: Vec<PicotestInstance> = pike::cluster::run(&params)?
+        let mut instances: Vec<PicotestInstance> = pike::cluster::run(params)?
             .into_iter()
             .map(|instance| PicotestInstance::from((instance, &data_dir)))
             .collect();
