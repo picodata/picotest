@@ -22,7 +22,7 @@ authors = [
 picotest_macros = { path = "../picotest_macros", version = "2.0.0" }
 picotest_helpers = { path = "../picotest_helpers", version = "2.0.0" }
 anyhow.workspace = true
-ctor = "0.9.1"
+ctor = "0.10.1"
 rstest.workspace = true
 serde.workspace = true
 
