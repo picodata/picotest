@@ -21,7 +21,7 @@ authors = [
 [dependencies]
 log = "0.4.29"
 rand = "0.10.1"
-uuid = { version = "1.23.0", features = ["v4"] }
+uuid = { version = "1.23.1", features = ["v4"] }
 picodata-pike.workspace = true
 anyhow.workspace = true
 toml = "1.0.6"
