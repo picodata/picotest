@@ -11,7 +11,7 @@ use uuid::Uuid;
 static GLOBAL_CLUSTER_UUID: OnceLock<Uuid> = OnceLock::new();
 
 #[ctor]
-fn init_plugin() {
+unsafe fn init_plugin() {
     plugin();
 }
 

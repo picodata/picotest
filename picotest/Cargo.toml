@@ -23,6 +23,7 @@ picotest_macros = { path = "../picotest_macros", version = "2.0.0" }
 picotest_helpers = { path = "../picotest_helpers", version = "2.0.0" }
 anyhow.workspace = true
 ctor = "1.0.3"
+dtor = "1.0.2"
 rstest.workspace = true
 serde.workspace = true
 

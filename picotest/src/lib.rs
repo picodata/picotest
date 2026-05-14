@@ -1,3 +1,4 @@
+use dtor::dtor;
 pub use picotest_helpers::{
     topology::PluginTopology, Cluster, PICOTEST_USER, PICOTEST_USER_PASSWORD,
 };
@@ -28,7 +29,7 @@ pub fn get_or_create_session_cluster(
     })
 }
 
-#[ctor::dtor]
+#[dtor]
 unsafe fn tear_down() {
     SESSION_CLUSTER.get().map(|cls| cls.stop());
 }
