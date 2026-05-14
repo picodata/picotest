@@ -13,7 +13,6 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::collections::BTreeMap;
 use std::ffi::OsStr;
-use std::fs;
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::{
@@ -319,10 +318,6 @@ impl Cluster {
         picodata_path: PathBuf,
     ) -> anyhow::Result<Self> {
         let data_dir = tmp_dir();
-
-        if let Err(err) = fs::remove_dir_all(plugin_path.join(data_dir.parent().unwrap())) {
-            warn!("Failed to remove cluster data directory: {err}");
-        }
 
         let cluster = Self {
             uuid: Uuid::new_v4(),
