@@ -31,5 +31,7 @@ pub fn get_or_create_session_cluster(
 
 #[dtor]
 unsafe fn tear_down() {
-    SESSION_CLUSTER.get().map(|cls| cls.stop());
+    if let Some(cluster) = SESSION_CLUSTER.get() {
+        cluster.stop().expect("Failed to stop the cluster");
+    }
 }
