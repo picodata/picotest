@@ -536,6 +536,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "dtor"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "df64ec34e01d9a0ad0677077efba521b91be7363445bd7a2ac001b60180545c3"
+dependencies = [
+ "linktime-proc-macro",
+]
+
+[[package]]
 name = "env_filter"
 version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1396,6 +1405,7 @@ dependencies = [
  "anyhow",
  "constcat",
  "ctor",
+ "dtor",
  "picotest_helpers",
  "picotest_macros",
  "postgres",
