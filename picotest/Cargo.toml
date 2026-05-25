@@ -26,6 +26,7 @@ ctor = "1.0.6"
 dtor = "1.0.3"
 rstest.workspace = true
 serde.workspace = true
+env_logger.workspace = true
 
 
 [dev-dependencies]
