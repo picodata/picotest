@@ -22,6 +22,7 @@ pub fn get_or_create_session_cluster(
     plugin_topology: Option<&PluginTopology>,
 ) -> &'static Cluster {
     SESSION_CLUSTER.get_or_init(|| {
+        env_logger::init();
         let plugin_path = plugin_path.map(PathBuf::from);
         let plugin_topology = plugin_topology.cloned();
 
