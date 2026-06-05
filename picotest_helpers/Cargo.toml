@@ -19,7 +19,7 @@ authors = [
 
 
 [dependencies]
-log = "0.4.29"
+log = "0.4.32"
 rand = "0.10.1"
 uuid = { version = "1.23.2", features = ["v4"] }
 picodata-pike.workspace = true
