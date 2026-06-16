@@ -1,9 +1,9 @@
 [workspace]
 resolver = "2"
 members = [
-    "picotest", 
-    "picotest_macros", 
-    "picotest_helpers", 
+    "picotest",
+    "picotest_macros",
+    "picotest_helpers",
 ]
 
 exclude = [
@@ -12,7 +12,7 @@ exclude = [
 
 [workspace.dependencies]
 anyhow = { version = "1.0.102" }
-picodata-pike = { version = "^5.3.1" }
+picodata-pike = { git = "https://github.com/picodata/pike.git", branch = "pyudin/chamge-unmantained-serde_yaml"}
 rstest = { version = "0.26.1"}
 serde = { version = "1.0.228", features = ["derive"] }
 serde_yaml = { version = "0.9.34-deprecated" }
