@@ -4,12 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [3.1.3]
+
+### Changed
+
+* Bump pike to 5.3.2
+* Replace unmaintained serde_yaml with maintained fork [serde_norway](https://github.com/cafkafk/serde-norway)
+
 ## [3.1.2]
 
 ### Changed
 
 * Bump pike to 5.3.1
-
 
 ## [3.1.1]
 
