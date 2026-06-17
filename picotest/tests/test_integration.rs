@@ -36,7 +36,7 @@ fn test_apply_config(plugin: &TestPlugin) {
     let must_be_overriden = "should_be_overridden_after_apply";
     let service_config = HashMap::from([(
         "value".to_string(),
-        serde_yaml::to_value(must_be_overriden).unwrap(),
+        serde_norway::to_value(must_be_overriden).unwrap(),
     )]);
     let plugin_config = HashMap::from([(plugin.service_name.clone(), service_config)]);
 
@@ -195,7 +195,7 @@ fn test_run_lua_select_and_serialize_output_from_yaml() {
     }
 
     let actual: Vec<Vec<SomeStruct>> =
-        serde_yaml::from_str(&output).expect("Failed to deserialize struct from YAML string");
+        serde_norway::from_str(&output).expect("Failed to deserialize struct from YAML string");
 
     assert_eq!(
         actual,

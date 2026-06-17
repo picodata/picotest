@@ -408,13 +408,13 @@ impl Cluster {
     ///
     /// **1. Using YAML formatted string.**
     ///
-    /// Put desired config inside string and deserialize it using [`serde_yaml::from_str`]. Then attach it to
+    /// Put desired config inside string and deserialize it using [`serde_norway::from_str`]. Then attach it to
     /// a particular plugin service.
     ///
     /// ```rust,ignore
     /// use rmpv::Value;
     /// use std::collections::HashMap;
-    /// use serde_yaml::Value;
+    /// use serde_norway::Value;
     /// use picotest::*;
     ///
     /// #[picotest]
@@ -429,7 +429,7 @@ impl Cluster {
     ///         "#;
     ///
     ///     let plugin_config: PluginConfigMap =
-    ///         serde_yaml::from_str(plugin_config_yaml).unwrap();
+    ///         serde_norway::from_str(plugin_config_yaml).unwrap();
     ///
     ///     // 2. Apply config to the running cluster instance.
     ///
@@ -444,12 +444,12 @@ impl Cluster {
     ///
     /// **2. Using `HashMap`.
     ///
-    /// Config can be assembled by means of [`std::collections::HashMap`] and [`serde_yaml::to_str`].
+    /// Config can be assembled by means of [`std::collections::HashMap`] and [`serde_norway::to_str`].
     ///
     /// ```rust,ignore
     /// use rmpv::Value;
     /// use std::collections::HashMap;
-    /// use serde_yaml::Value;
+    /// use serde_norway::Value;
     /// use picotest::*;
     ///
     /// #[picotest]
@@ -479,7 +479,7 @@ impl Cluster {
     ///
     /// #### Plugin with single service called `router`, which has nested properties for RPC machinery.
     ///
-    /// Nested sections in config mapping are handled similarly. We just need to wrap nested map value into [`serde_yaml::Value`].
+    /// Nested sections in config mapping are handled similarly. We just need to wrap nested map value into [`serde_norway::Value`].
     ///
     /// Assume [plugin YAML configuration file](https://github.com/picodata/pike?tab=readme-ov-file#config-apply)
     /// has the following mapping:
@@ -497,7 +497,7 @@ impl Cluster {
     /// ```rust,ignore
     /// use rmpv::Value;
     /// use std::collections::HashMap;
-    /// use serde_yaml::Value;
+    /// use serde_norway::Value;
     /// use picotest::*;
     ///
     /// #[picotest]
@@ -509,7 +509,7 @@ impl Cluster {
     ///         ("max_message_queue_size".to_string(), Value::Number(32.into())),
     ///     ]);
     ///
-    ///     let router_config = HashMap::from([("rpc".to_string(), serde_yaml::to_value(rpc_config).unwrap())]);
+    ///     let router_config = HashMap::from([("rpc".to_string(), serde_norway::to_value(rpc_config).unwrap())]);
     ///     let plugin_config = HashMap::from([("router".to_string(), router_config)]);
     ///
     ///     cluster // implicitly created variable by picotest magic
