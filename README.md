@@ -10,8 +10,8 @@
     - [Использование `#[picotest]`](#использование-picotest)
     - [Переменные окружения](#переменные-окружения)
       - [`WAIT_VSHARD_DISCOVERY`](#wait_vshard_discovery)
-      - [Логирование](#логирование)
-      - [`RUST_LOG`](#rust_log)
+    - [Логирование](#логирование)
+    - [Файлы логов кластера](#файлы-логов-кластера)
     - [Совместимость с `rstest`](#совместимость-с-rstest)
     - [Атрибуты макроса `#[picotest]`](#атрибуты-макроса-picotest)
     - [Применение конфигурации плагина к запущенному кластеру Picodata](#применение-конфигурации-плагина-к-запущенному-кластеру-picodata)
@@ -249,7 +249,7 @@ fn test_apply_plugin() {
         "#;
 
     let plugin_config: PluginConfigMap = 
-        serde_yaml::from_str(plugin_config_yaml).unwrap();
+        serde_norway::from_str(plugin_config_yaml).unwrap();
 
     // 2. Apply config to the running cluster instance.
 
