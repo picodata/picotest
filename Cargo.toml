@@ -12,7 +12,7 @@ exclude = [
 
 [workspace.dependencies]
 anyhow = { version = "1.0.102" }
-picodata-pike = { version = "^5.3.1" }
+picodata-pike = { version = "^5.3.2" }
 rstest = { version = "0.26.1"}
 serde = { version = "1.0.228", features = ["derive"] }
 serde_norway = { version = "0.9" }
