@@ -30,6 +30,7 @@ const PLUGIN_TOPOLOGY_FILENAME: &str = "topology.toml";
 
 const ENV_WAIT_VSHARD_DISCOVERY: &str = "WAIT_VSHARD_DISCOVERY";
 const ENV_PICODATA_PATH: &str = "PICODATA_PATH";
+const ENV_TOPOLOGY_PATH: &str = "TOPOLOGY_PATH";
 
 pub fn plugin_profile_build_path(plugin_path: &Path) -> PathBuf {
     plugin_path.join("target").join("debug")
@@ -44,6 +45,17 @@ pub fn plugin_dylib_path(plugin_path: &Path, package_name: &str) -> PathBuf {
 
 /// Constructs a path to the topology file of the plugin.
 pub fn plugin_topology_path(plugin_path: &Path) -> PathBuf {
+    if let Ok(path) = var(ENV_TOPOLOGY_PATH) {
+        let topology_path = PathBuf::from(&path);
+        if topology_path.exists() {
+            return topology_path;
+        }
+        println!(
+            "ENV_TOPOLOGY_PATH environment variable is not set, \
+                using default PATH"
+        );
+    }
+
     plugin_path.join(PLUGIN_TOPOLOGY_FILENAME)
 }
 
