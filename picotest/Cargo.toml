@@ -26,6 +26,7 @@ ctor = "1.0.7"
 dtor = "1.0.5"
 rstest.workspace = true
 serde.workspace = true
+serde_norway.workspace = true
 env_logger.workspace = true
 
 
@@ -36,5 +37,4 @@ tokio = "1.52.3"
 wait-timeout = "0.2.1"
 uuid = { version = "1.23.2", features = ["v4"] }
 constcat = "0.6.1"
-serde_norway.workspace=true
 postgres = { version = "0.19", features = ["with-chrono-0_4"] }
