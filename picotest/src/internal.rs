@@ -12,6 +12,7 @@ use picotest_helpers::topology::{
     DEFAULT_TIER,
 };
 use picotest_helpers::{Cluster, DEFAULT_WAIT_VSHARD_ENABLED};
+use serde::Deserialize;
 use std::collections::HashMap;
 use std::env::{var, VarError};
 use std::{
@@ -129,12 +130,50 @@ true"#
     )
 }
 
+/// Recursively looks for a Tarantool console `error:` record inside a
+/// parsed YAML document, returning its message if found.
+///
+/// The admin console reports a failed command as a one-element sequence
+/// containing a mapping with an `error` key, e.g. `- error: '...'`. This
+/// walks sequences to find such a mapping, regardless of the underlying
+/// OS-specific wording of the error message (glibc's dlopen/dlsym errors
+/// look nothing like dyld's on macOS).
+fn find_console_error(document: &serde_norway::Value) -> Option<String> {
+    match document {
+        serde_norway::Value::Mapping(mapping) => mapping.get("error").map(|error| match error {
+            serde_norway::Value::String(message) => message.clone(),
+            other => format!("{other:?}"),
+        }),
+        serde_norway::Value::Sequence(items) => items.iter().find_map(find_console_error),
+        _ => None,
+    }
+}
+
+/// Verifies output of a unit-test run through [`lua_ffi_call_unit_test`].
+///
+/// The admin console executes the generated Lua script command-by-command,
+/// so a failure in one command (e.g. `ffi.load(...)` unable to resolve a
+/// symbol) does not stop the remaining commands from running and printing
+/// their own output. This means a naive `output.contains("true")` check
+/// can't be trusted on its own: the trailing `true` literal in the script
+/// always gets printed, even when the actual test body never ran.
+///
+/// Instead of matching OS-specific error text (glibc's dlopen/dlsym
+/// messages differ from macOS's dyld ones), this parses the console
+/// output as a stream of YAML documents - one per executed command - and
+/// checks whether any of them is a Tarantool console `error:` record.
 pub fn verify_unit_test_output(output: &str) -> anyhow::Result<()> {
-    if output.contains("cannot open shared object file") {
-        bail!("failed to open plugin shared library")
-    } else if output.contains("missing declaration") || output.contains("undefined symbol") {
-        bail!("failed to call unit-test routine: missing symbol in plugin shared library")
-    } else if !output.contains("true") {
+    for document in serde_norway::Deserializer::from_str(output) {
+        let Ok(value) = serde_norway::Value::deserialize(document) else {
+            continue;
+        };
+
+        if let Some(error_message) = find_console_error(&value) {
+            bail!("unit-test routine failed: {error_message}");
+        }
+    }
+
+    if !output.contains("true") {
         bail!("test has finished unexpectedly")
     }
 
@@ -216,4 +255,128 @@ pub fn get_or_create_unit_test_topology() -> &'static PluginTopology {
         transformer.set_migration_context_provider(context_vars_map);
         transformer.transform(&plugin_topology)
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::verify_unit_test_output;
+
+    const SUCCESS_OUTPUT: &str = r#"
+---
+- '[*] Running unit-test ''should_success'''
+...
+---
+- '[*] Test ''should_success'' has been finished'
+...
+---
+- true
+...
+"#;
+
+    #[test]
+    fn accepts_successful_run() {
+        assert!(verify_unit_test_output(SUCCESS_OUTPUT).is_ok());
+    }
+
+    #[test]
+    fn rejects_missing_symbol_error_on_linux() {
+        // glibc's dlsym() wording, as observed on Linux CI.
+        let output = r#"
+---
+- '[*] Running unit-test ''missing_symbol'''
+...
+---
+- error: 'builtin/ffi.lua:162: ./libtest.so: undefined symbol: missing_symbol'
+...
+---
+- '[*] Test ''missing_symbol'' has been finished'
+...
+---
+- true
+...
+"#;
+
+        let err = verify_unit_test_output(output).expect_err(
+            "must be detected as failure even though trailing banner and `true` still ran",
+        );
+        assert!(err.to_string().contains("undefined symbol"));
+    }
+
+    #[test]
+    fn rejects_missing_symbol_error_on_macos() {
+        // dyld's dlsym() wording, as observed on macOS - this is the
+        // regression this function used to silently pass as `Ok(())`.
+        let output = r#"
+---
+- '[*] Running unit-test ''missing_symbol'''
+...
+---
+- error: 'builtin/ffi.lua:162: dlsym(RTLD_DEFAULT, missing_symbol): symbol not found'
+...
+---
+- '[*] Test ''missing_symbol'' has been finished'
+...
+---
+- true
+...
+"#;
+
+        let err = verify_unit_test_output(output).expect_err(
+            "must be detected as failure even though trailing banner and `true` still ran",
+        );
+        assert!(err.to_string().contains("symbol not found"));
+    }
+
+    #[test]
+    fn rejects_missing_shared_library_on_linux() {
+        let output = r#"
+---
+- '[*] Running unit-test ''missing_lib'''
+...
+---
+- error: 'libtest.so: cannot open shared object file: No such file or directory'
+...
+---
+- '[*] Test ''missing_lib'' has been finished'
+...
+---
+- true
+...
+"#;
+
+        assert!(verify_unit_test_output(output).is_err());
+    }
+
+    #[test]
+    fn rejects_missing_shared_library_on_macos() {
+        // dyld's wording for a missing shared library differs entirely
+        // from glibc's "cannot open shared object file".
+        let output = r#"
+---
+- '[*] Running unit-test ''missing_lib'''
+...
+---
+- error: 'dlopen(./libtest.dylib, 0x0005): tried: ''./libtest.dylib'' (no such file)'
+...
+---
+- '[*] Test ''missing_lib'' has been finished'
+...
+---
+- true
+...
+"#;
+
+        assert!(verify_unit_test_output(output).is_err());
+    }
+
+    #[test]
+    fn rejects_output_without_trailing_true() {
+        let output = r#"
+---
+- '[*] Running unit-test ''crashed'''
+...
+"#;
+
+        assert!(verify_unit_test_output(output).is_err());
+    }
 }
