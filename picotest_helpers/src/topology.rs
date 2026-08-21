@@ -67,7 +67,7 @@ impl TopologyTransformer for SingleNodeTopologyTransformer {
         // put their services on default tier.
         for (plugin_name, plugin) in topology.plugins.iter_mut() {
             plugin.migration_context = self.mctx_provider.get_migration_context(plugin_name);
-            for (_, service) in plugin.services.iter_mut() {
+            for service in plugin.services.values_mut() {
                 service.tiers = vec![DEFAULT_TIER.into()];
             }
         }

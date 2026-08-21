@@ -21,7 +21,7 @@ impl Deref for Migrations {
 
 impl Migrations {
     pub fn from_unsorted(mut migrations: Vec<Migration>) -> Self {
-        migrations.sort_by(|a, b| a.version.cmp(&b.version));
+        migrations.sort_by_key(|a| a.version);
         Self {
             sequence: migrations,
         }
