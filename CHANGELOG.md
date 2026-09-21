@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [3.2.2]
+
+### Changed
+* Loosen `rmpv` requirement in `picotest_helpers` from `=1.0.0` to `1.0.0` to avoid version conflicts with consumer crates
+
 ## [3.2.1]
 
 ### Fixed
