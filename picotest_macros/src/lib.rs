@@ -16,6 +16,7 @@ fn parse_attrs<T: FromMeta>(attr: TokenStream) -> Result<T, TokenStream> {
 #[derive(Debug, FromMeta)]
 struct PluginCfg {
     path: Option<String>,
+    topology: Option<String>,
 }
 
 #[proc_macro_attribute]
@@ -26,16 +27,15 @@ pub fn picotest(attr: TokenStream, item: TokenStream) -> TokenStream {
         Err(err) => return err,
     };
 
-    let path = cfg.path;
     let input = match input {
-        Item::Fn(func) => Item::Fn(utils::process_test_function(func, &path)),
+        Item::Fn(func) => Item::Fn(utils::process_test_function(func, &cfg.path, &cfg.topology)),
         Item::Mod(mut m) => {
             let (brace, items) = m.content.unwrap();
             let mut items: Vec<Item> = items
                 .into_iter()
                 .map(|item| {
                     if let Item::Fn(func) = item {
-                        Item::Fn(utils::process_test_function(func, &path))
+                        Item::Fn(utils::process_test_function(func, &cfg.path, &cfg.topology))
                     } else {
                         item
                     }
