@@ -193,7 +193,8 @@ impl PicotestInstance {
 
         let result = self.read_output(stdout)?;
         if result.is_empty() {
-            let err_output = self.read_output(stderr)?;
+            let mut err_output = String::new();
+            BufReader::new(stderr).read_to_string(&mut err_output)?;
             if !err_output.is_empty() {
                 picodata_admin.kill()?;
                 return Err(Error::other(err_output));
@@ -275,7 +276,8 @@ impl PicotestInstance {
 
             let picodata_admin = Command::new("picodata")
                 .arg("admin")
-                .arg(self.socket_path.clone())
+                .arg(self.socket_path.file_name().unwrap())
+                .current_dir(self.socket_path.parent().unwrap())
                 .stdin(Stdio::piped())
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped())
@@ -302,6 +304,7 @@ pub struct Cluster {
     instances: Vec<PicotestInstance>,
     picodata_path: PathBuf,
     wait_vshard_discovery: bool,
+    use_release: bool,
 }
 
 impl Drop for Cluster {
@@ -332,6 +335,7 @@ impl Cluster {
             instances: Default::default(),
             picodata_path,
             wait_vshard_discovery: DEFAULT_WAIT_VSHARD_ENABLED,
+            use_release: false,
         };
 
         Ok(cluster)
@@ -339,6 +343,11 @@ impl Cluster {
 
     pub fn wait_vshard_discovery(mut self, is_enabled: bool) -> Self {
         self.wait_vshard_discovery = is_enabled;
+        self
+    }
+
+    pub fn use_release(mut self, is_enabled: bool) -> Self {
+        self.use_release = is_enabled;
         self
     }
 
@@ -540,7 +549,7 @@ impl Cluster {
             .picodata_path(self.picodata_path.clone())
             .wait_vshard_discovery(self.wait_vshard_discovery)
             .wait_vshard_discovery_timeout(DEFAULT_WAIT_VSHARD_TIMEOUT_SECS)
-            .use_release(false)
+            .use_release(self.use_release)
             .build()?;
 
         let data_dir = self.data_dir_path();
