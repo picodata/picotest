@@ -338,6 +338,7 @@ pub struct Cluster {
     wait_vshard_discovery: bool,
     slot: ClusterSlot,
     _data_dir_lock: File,
+    use_release: bool,
 }
 
 impl Drop for Cluster {
@@ -372,6 +373,7 @@ impl Cluster {
             wait_vshard_discovery: DEFAULT_WAIT_VSHARD_ENABLED,
             slot,
             _data_dir_lock: data_dir_lock,
+            use_release: false,
         };
 
         Ok(cluster)
@@ -384,6 +386,11 @@ impl Cluster {
 
     pub fn host(&self) -> Ipv4Addr {
         self.slot.host()
+    }
+
+    pub fn use_release(mut self, is_enabled: bool) -> Self {
+        self.use_release = is_enabled;
+        self
     }
 
     pub fn data_dir_path(&self) -> PathBuf {
@@ -625,13 +632,12 @@ impl Cluster {
             .base_pg_port(self.slot.base_pg_port())
             .wait_vshard_discovery(self.wait_vshard_discovery)
             .wait_vshard_discovery_timeout(DEFAULT_WAIT_VSHARD_TIMEOUT_SECS)
-            .use_release(false);
+            .use_release(self.use_release);
         builder
     }
 
     pub fn run(mut self) -> anyhow::Result<Self> {
         let params = self.run_params_builder().build()?;
-
         let data_dir = self.data_dir_path();
         let host = self.host();
 
@@ -767,9 +773,6 @@ fn instances_count(topology: &PluginTopology) -> u16 {
 }
 
 /// Picks a data directory for a new cluster and locks it.
-///
-/// The lock lives as long as the cluster does and keeps other clusters
-/// from treating the directory as stale.
 fn lock_new_data_dir(plugin_path: &Path) -> anyhow::Result<(PathBuf, File)> {
     loop {
         let data_dir = tmp_dir();
