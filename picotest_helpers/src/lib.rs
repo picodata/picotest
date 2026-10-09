@@ -5,6 +5,7 @@ use pike::cluster::{
     PicodataInstance, PicodataInstanceProperties, RunParamsBuilder, StopParamsBuilder, Topology,
 };
 use pike::config::ApplyParamsBuilder;
+use pike::healthcheck::api::is_instance_ready;
 use rand::distr::Alphanumeric;
 use rand::RngExt;
 use rmpv::Value;
@@ -15,7 +16,9 @@ use std::collections::BTreeMap;
 use std::ffi::OsStr;
 use std::fs;
 use std::io::{BufRead, BufReader, Write};
+use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 use std::{
     io::{Error, Read},
     process::{Child, Command, Stdio},
@@ -44,6 +47,12 @@ pub const OUTPUT_FOOTER: &str = "Bye";
 pub const DEFAULT_WAIT_VSHARD_TIMEOUT_SECS: u64 = 60;
 pub const DEFAULT_WAIT_VSHARD_ENABLED: bool = true;
 
+// Timeout for a started instance to become ready to serve requests.
+const INSTANCE_READY_TIMEOUT: Duration = Duration::from_secs(60);
+// Timeout for an instance to be expelled from the cluster.
+const INSTANCE_EXPEL_TIMEOUT: Duration = Duration::from_secs(60);
+const POLL_INTERVAL: Duration = Duration::from_millis(100);
+
 pub fn tmp_dir() -> PathBuf {
     let mut rng = rand::rng();
     PathBuf::from(format!(
@@ -57,6 +66,7 @@ pub fn tmp_dir() -> PathBuf {
 
 pub struct PicotestInstance {
     inner: PicodataInstance,
+    restarted: Mutex<Option<PicodataInstance>>,
     pub socket_path: PathBuf,
     pub bin_port: u16,
     pub pg_port: u16,
@@ -82,6 +92,7 @@ impl From<(PicodataInstance, &PathBuf)> for PicotestInstance {
             tier: properties.tier.to_string(),
             instance_id: *properties.instance_id,
             inner: instance,
+            restarted: Mutex::new(None),
             socket_path,
         }
     }
@@ -102,6 +113,10 @@ impl PicotestInstance {
 
     pub fn inner(&self) -> &PicodataInstance {
         &self.inner
+    }
+
+    pub fn is_running(&self) -> bool {
+        UnixStream::connect(&self.socket_path).is_ok()
     }
 
     pub async fn execute_rpc<S, G>(
@@ -367,6 +382,75 @@ impl Cluster {
         pike::cluster::stop(&params)
     }
 
+    pub fn start_instance(&self, instance: &PicotestInstance) -> anyhow::Result<()> {
+        let params = self
+            .run_params_builder()
+            .instance_name(Some(instance.instance_name.clone()))
+            // Plugin has already been built on cluster startup.
+            .no_build(true)
+            .build()?;
+
+        debug!("Starting the cluster instance with parameters {params:?}");
+        let Some(started) = pike::cluster::run(params)?.pop() else {
+            return Ok(());
+        };
+
+        let start_time = Instant::now();
+        while !is_instance_ready(&started) {
+            if start_time.elapsed() > INSTANCE_READY_TIMEOUT {
+                bail!(
+                    "instance '{}' did not become ready within {INSTANCE_READY_TIMEOUT:?}",
+                    instance.instance_name
+                );
+            }
+            std::thread::sleep(POLL_INTERVAL);
+        }
+
+        *instance.restarted.lock().unwrap() = Some(started);
+
+        Ok(())
+    }
+
+    pub fn restart_instance(&self, instance: &PicotestInstance) -> anyhow::Result<()> {
+        self.stop_instance(instance)?;
+        self.start_instance(instance)
+    }
+
+    pub fn expel_instance(&self, instance: &PicotestInstance, force: bool) -> anyhow::Result<()> {
+        let instance_name = &instance.instance_name;
+        let peer = self
+            .instances
+            .iter()
+            .find(|peer| peer.instance_name != *instance_name && peer.is_running())
+            .context("no running instance left to perform expel")?;
+
+        let output = peer.run_lua(format!(
+            "return pico.expel('{instance_name}', {{ force = {force}, timeout = {} }})",
+            INSTANCE_EXPEL_TIMEOUT.as_secs()
+        ))?;
+        if !output.lines().any(|line| line.trim() == "- true") {
+            bail!("failed to expel instance '{instance_name}': {output}");
+        }
+
+        let start_time = Instant::now();
+        loop {
+            let state = peer.run_lua(format!(
+                "return box.space._pico_instance:get('{instance_name}').current_state[1]"
+            ))?;
+            if state.contains("Expelled") {
+                break;
+            }
+            if start_time.elapsed() > INSTANCE_EXPEL_TIMEOUT {
+                bail!(
+                    "instance '{instance_name}' was not expelled within {INSTANCE_EXPEL_TIMEOUT:?}"
+                );
+            }
+            std::thread::sleep(POLL_INTERVAL);
+        }
+
+        self.stop_instance(instance)
+    }
+
     /// Applies passed plugin config to the running cluster through the interface of command
     /// "[pike config apply](https://github.com/picodata/pike?tab=readme-ov-file#config-apply)".
     ///
@@ -532,16 +616,21 @@ impl Cluster {
         pike::config::apply(&params)
     }
 
-    pub fn run(mut self) -> anyhow::Result<Self> {
-        let params = RunParamsBuilder::default()
+    fn run_params_builder(&self) -> RunParamsBuilder {
+        let mut builder = RunParamsBuilder::default();
+        builder
             .plugin_path(self.plugin_path.clone())
             .data_dir(self.data_dir.clone())
             .topology(self.topology.clone())
             .picodata_path(self.picodata_path.clone())
             .wait_vshard_discovery(self.wait_vshard_discovery)
             .wait_vshard_discovery_timeout(DEFAULT_WAIT_VSHARD_TIMEOUT_SECS)
-            .use_release(false)
-            .build()?;
+            .use_release(false);
+        builder
+    }
+
+    pub fn run(mut self) -> anyhow::Result<Self> {
+        let params = self.run_params_builder().build()?;
 
         let data_dir = self.data_dir_path();
 

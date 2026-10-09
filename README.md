@@ -26,7 +26,7 @@
   - [Подключение по Postrges протоколу](#подключение-по-postrges-протоколу)
   - [Тестирование RPC ручек плагина](#тестирование-rpc-ручек-плагина)
   - [Покдлючение к admin консоли и выполнение sql/lua](#покдлючение-к-admin-консоли-и-выполнение-sqllua)
-  - [Принудительная остановка инстанса](#принудительная-остановка-инстанса)
+  - [Управление инстансами кластера](#управление-инстансами-кластера)
     - [Пример использования](#пример-использования)
 
 ## Описание
@@ -569,18 +569,28 @@ fn test_run_query_on_instance() {
 }
 ```
 
-## Принудительная остановка инстанса
+## Управление экземплярами кластера
 
-Метод `stop_instance` позволяет остановить конкретный экземпляр (instance) внутри кластера Picotest.
+Экземпляр из кластера можно остановить, запустить, перезапустить или исключить
+с помощью методов `stop_instance`, `start_instance`, `restart_instance`
+и `expel_instance` соответственно. Проверить, запущен ли инстанс,
+можно методом `is_running`.
 
 ### Пример использования
 
 ```rust
 #[picotest]
-fn test_stop_cluster_instance() {
-    // получаем список всех инстансов в кластере
+fn test_instance_lifecycle() {
     let instances = cluster.instances();
-    // останавливаем выбранный инстанс
-    cluster.stop_instance(&instances[1])
+
+    cluster.stop_instance(&instances[1]).unwrap();
+    assert!(!instances[1].is_running());
+
+    cluster.start_instance(&instances[1]).unwrap();
+    cluster.restart_instance(&instances[1]).unwrap();
+    assert!(instances[1].is_running());
+
+    // force = true: исключаем работающий инстанс
+    cluster.expel_instance(&instances[2], true).unwrap();
 }
 ```
