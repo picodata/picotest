@@ -108,6 +108,42 @@ mod test_mod {
     }
 }
 
+#[picotest(
+    path = "../tmp/test_plugin",
+    topology = "../../picotest/tests/assets/single_node_topology.toml"
+)]
+mod test_custom_topology {
+    use crate::{plugin, TestPlugin};
+
+    fn test_cluster_with_custom_topology(plugin: &TestPlugin) {
+        let default_cluster = picotest::cluster(Some(plugin.path.to_str().unwrap()));
+
+        assert_eq!(cluster.instances().len(), 1);
+        assert_eq!(default_cluster.instances().len(), 4);
+
+        // Clusters run side by side on their own addresses.
+        assert_ne!(cluster.uuid, default_cluster.uuid);
+        assert_ne!(cluster.host(), default_cluster.host());
+        assert_eq!(cluster.main().host, cluster.host());
+
+        for cluster in [cluster, default_cluster] {
+            let enabled = cluster.run_query(format!(
+                r#"SELECT enabled FROM _pico_plugin WHERE name = '{}';"#,
+                plugin.name
+            ));
+            assert!(enabled.is_ok_and(|enabled| enabled.contains("true")));
+        }
+    }
+
+    fn test_cluster_is_shared_within_topology() {
+        let same_cluster = cluster_with_topology(
+            Some("../tmp/test_plugin"),
+            Some("../../picotest/tests/assets/single_node_topology.toml"),
+        );
+        assert_eq!(cluster.uuid, same_cluster.uuid);
+    }
+}
+
 #[picotest(path = "../tmp/test_plugin")]
 fn test_select_from_missing_table() {
     let result = cluster.run_query("SELECT * FROM table1");

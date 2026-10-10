@@ -180,6 +180,12 @@ pub fn verify_unit_test_output(output: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Parses topology of the plugin from its default location.
+pub fn default_plugin_topology(plugin_path: &Path) -> PluginTopology {
+    parse_topology(&plugin_topology_path(plugin_path))
+        .unwrap_or_else(|err| panic!("Failed to load cluster topology: {err:#}"))
+}
+
 /// Creates new instance of Picodata [`Cluster`].
 ///
 /// ### Arguments
