@@ -270,10 +270,13 @@ fn run_cargo_test(manifest_dir: &PathBuf, test_args: &[&str]) -> Child {
         test_args,
     );
 
-    Command::new("cargo")
-        .arg("test")
-        .arg("--quiet")
-        .arg("--")
+    let mut cmd = Command::new("cargo");
+    cmd.arg("test").arg("--quiet");
+    if !cfg!(debug_assertions) {
+        cmd.arg("--release");
+    }
+
+    cmd.arg("--")
         .args(test_args)
         .current_dir(manifest_dir)
         .stdout(Stdio::piped())
