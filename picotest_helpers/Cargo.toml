@@ -23,6 +23,7 @@ log = "0.4.32"
 rand = "0.10.1"
 uuid = { version = "1.23.2", features = ["v4"] }
 picodata-pike.workspace = true
+nix = { version = "0.31", features = ["signal"] }
 anyhow.workspace = true
 toml = "1.0.6"
 rmpv = { version = "1.0.0" }
