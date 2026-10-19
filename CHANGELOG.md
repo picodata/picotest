@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Changed
 
 * Bump pike to the latest 5.8.0 version
+* Dependency updates: `uuid`, `tokio`, `syn`, `rand`
 
 ## [3.2.2]
 
