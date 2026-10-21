@@ -9,7 +9,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/) and this p
 ### Changed
 
 * Удален `path` атрибут для макроса `#[picotest]`, передать путь до плагина теперь можно через переменную `PLUGIN_PATH`
-
+* Версия Pike обновлена до 6.0.0
 
 ## [3.2.3]
 

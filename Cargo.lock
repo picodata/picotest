@@ -1237,9 +1237,9 @@ dependencies = [
 
 [[package]]
 name = "picodata-pike"
-version = "5.8.0"
+version = "6.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "100325dfe0257c51a8feb671fe0680c84da3536682156a241508208b6c0329ba"
+checksum = "1eeebdd0c2d7eb6c0595dc7271cb92b82c6daf18c783dc478734c22d7b238749"
 dependencies = [
  "anyhow",
  "clap",
