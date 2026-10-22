@@ -1,41 +1,24 @@
 mod utils;
 
-use darling::ast::NestedMeta;
-use darling::{Error, FromMeta};
 use proc_macro::TokenStream;
 use quote::quote;
+use syn::parse::Nothing;
 use syn::{parse, parse_macro_input, parse_quote, Ident, Item, ItemFn};
-
-fn parse_attrs<T: FromMeta>(attr: TokenStream) -> Result<T, TokenStream> {
-    NestedMeta::parse_meta_list(attr.into())
-        .map_err(Error::from)
-        .and_then(|attr| T::from_list(&attr))
-        .map_err(|e| TokenStream::from(e.write_errors()))
-}
-
-#[derive(Debug, FromMeta)]
-struct PluginCfg {
-    path: Option<String>,
-}
 
 #[proc_macro_attribute]
 pub fn picotest(attr: TokenStream, item: TokenStream) -> TokenStream {
+    parse_macro_input!(attr as Nothing);
     let input = parse_macro_input!(item as Item);
-    let cfg: PluginCfg = match parse_attrs(attr) {
-        Ok(cfg) => cfg,
-        Err(err) => return err,
-    };
 
-    let path = cfg.path;
     let input = match input {
-        Item::Fn(func) => Item::Fn(utils::process_test_function(func, &path)),
+        Item::Fn(func) => Item::Fn(utils::process_test_function(func)),
         Item::Mod(mut m) => {
             let (brace, items) = m.content.unwrap();
             let mut items: Vec<Item> = items
                 .into_iter()
                 .map(|item| {
                     if let Item::Fn(func) = item {
-                        Item::Fn(utils::process_test_function(func, &path))
+                        Item::Fn(utils::process_test_function(func))
                     } else {
                         item
                     }
@@ -103,7 +86,6 @@ pub fn picotest_unit(_: TokenStream, tokens: TokenStream) -> TokenStream {
                             #ffi_test_callable, plugin_dylib_path.to_str().unwrap());
 
                     let cluster = picotest::get_or_create_session_cluster(
-                        plugin_path.to_str().unwrap().into(),
                         plugin_topology.into(),
                     );
 

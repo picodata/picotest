@@ -90,9 +90,16 @@ pub fn create_test_plugin(remove_if_exists: bool) -> TestPlugin {
         assert!(exit_status.success());
     }
 
+    let plugin_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(PLUGIN_DIR);
+    let plugin_path = fs::canonicalize(&plugin_path).unwrap_or(plugin_path);
+
+    unsafe {
+        std::env::set_var("PLUGIN_PATH", &plugin_path);
+    }
+
     TestPlugin {
         name: PLUGIN_NAME.parse().unwrap(),
-        path: PathBuf::from(PLUGIN_DIR),
+        path: plugin_path,
         service_name: PLUGIN_SERVICE_NAME.parse().unwrap(),
     }
 }
