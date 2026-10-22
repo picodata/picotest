@@ -15,7 +15,7 @@ unsafe fn init_plugin() {
     plugin();
 }
 
-#[picotest(path = "../tmp/test_plugin")]
+#[picotest]
 fn test_func_install_plugin(plugin: &TestPlugin) {
     let cluster_uuid = GLOBAL_CLUSTER_UUID.get_or_init(|| cluster.uuid);
     assert_eq!(cluster_uuid, &cluster.uuid);
@@ -28,7 +28,7 @@ fn test_func_install_plugin(plugin: &TestPlugin) {
     assert!(enabled.is_ok_and(|enabled| enabled.contains("true")));
 }
 
-#[picotest(path = "../tmp/test_plugin")]
+#[picotest]
 fn test_apply_config(plugin: &TestPlugin) {
     let cluster_uuid = GLOBAL_CLUSTER_UUID.get_or_init(|| cluster.uuid);
     assert_eq!(cluster_uuid, &cluster.uuid);
@@ -56,7 +56,7 @@ fn test_apply_config(plugin: &TestPlugin) {
     assert!(service_properties.contains(must_be_overriden));
 }
 
-#[picotest(path = "../tmp/test_plugin")]
+#[picotest]
 fn test_get_instances() {
     let cluster_uuid = GLOBAL_CLUSTER_UUID.get_or_init(|| cluster.uuid);
     assert_eq!(cluster_uuid, &cluster.uuid);
@@ -65,7 +65,7 @@ fn test_get_instances() {
     assert_eq!(cluster.main().pg_port, 5433)
 }
 
-#[picotest(path = "../tmp/test_plugin")]
+#[picotest]
 #[case(1, 1)]
 #[case(2, 2)]
 #[case(3, 3)]
@@ -75,7 +75,7 @@ fn test_function_with_case(#[case] input: i32, #[case] expected: i32) {
     assert_eq!(input, expected);
 }
 
-#[picotest(path = "../tmp/test_plugin")]
+#[picotest]
 mod test_mod {
     use crate::{plugin, TestPlugin};
     use std::sync::OnceLock;
@@ -108,7 +108,7 @@ mod test_mod {
     }
 }
 
-#[picotest(path = "../tmp/test_plugin")]
+#[picotest]
 fn test_select_from_missing_table() {
     let result = cluster.run_query("SELECT * FROM table1");
     assert!(result.is_err(), "result : {:?}", result);
@@ -125,7 +125,7 @@ pub struct ExampleResponse {
 }
 
 #[tokio::test]
-#[picotest(path = "../tmp/test_plugin")]
+#[picotest]
 async fn test_rpc_handle(plugin: &TestPlugin) {
     let user_to_send = User {
         name: "Dodo".to_string(),
@@ -149,7 +149,7 @@ async fn test_rpc_handle(plugin: &TestPlugin) {
     );
 }
 
-#[picotest(path = "../tmp/test_plugin")]
+#[picotest]
 fn test_run_lua_query(_plugin: &TestPlugin) {
     let res = cluster.instances()[1].run_lua("return 1 + 1").unwrap();
     assert!(res.contains("2"));
@@ -157,7 +157,7 @@ fn test_run_lua_query(_plugin: &TestPlugin) {
     assert!(!res.contains(OUTPUT_FOOTER));
 }
 
-#[picotest(path = "../tmp/test_plugin")]
+#[picotest]
 fn test_run_lua_select_and_serialize_output_from_yaml() {
     // This test creates box and insert some values into it.
     // Then tries to select those values through Lua query

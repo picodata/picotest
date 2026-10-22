@@ -31,6 +31,7 @@ const PLUGIN_TOPOLOGY_FILENAME: &str = "topology.toml";
 
 const ENV_WAIT_VSHARD_DISCOVERY: &str = "WAIT_VSHARD_DISCOVERY";
 const ENV_PICODATA_PATH: &str = "PICODATA_PATH";
+const ENV_PLUGIN_PATH: &str = "PLUGIN_PATH";
 const ENV_TOPOLOGY_PATH: &str = "TOPOLOGY_PATH";
 
 pub fn plugin_profile_build_path(plugin_path: &Path) -> PathBuf {
@@ -62,25 +63,36 @@ pub fn plugin_topology_path(plugin_path: &Path) -> PathBuf {
 
 /// Returns root directory of the plugin.
 ///
+/// Resolution order:
+/// 1. `PLUGIN_PATH` environment variable, if set and the path exists.
+/// 2. Walk ancestors of `CARGO_MANIFEST_DIR` looking for `topology.toml`,
+///    then take its parent directory.
+///
 /// Panics if it was not found.
 ///
 /// Basically, it looks for topology.toml file and then
 /// returns its parent directory.
 pub fn plugin_root_dir() -> PathBuf {
-    let plugin_topology_path = find_plugin_topology_path()
-        .expect("Error occurred while searching for plugin topology configuration")
-        .expect("Plugin topology configuration is not found");
-
-    let plugin_root_dir = plugin_topology_path
-        .parent()
-        .expect("Failed to obtain parent directory of plugin topology file");
+    let plugin_root_dir = var(ENV_PLUGIN_PATH)
+        .map(PathBuf::from)
+        .ok()
+        .filter(|path| path.exists())
+        .unwrap_or_else(|| {
+            find_plugin_topology_path()
+                .expect("Error occurred while searching for plugin topology configuration")
+                .expect("Plugin topology configuration is not found")
+                .parent()
+                .expect("Failed to obtain parent directory of plugin topology file")
+                .to_path_buf()
+        });
 
     assert!(
         plugin_root_dir.join("Cargo.toml").exists(),
-        "broken plugin directory?"
+        "Plugin root directory does not contain Cargo.toml: {}",
+        plugin_root_dir.display()
     );
 
-    plugin_root_dir.to_path_buf()
+    plugin_root_dir
 }
 
 /// Finds path to the plugin topology file.
@@ -183,18 +195,12 @@ pub fn verify_unit_test_output(output: &str) -> anyhow::Result<()> {
 /// Creates new instance of Picodata [`Cluster`].
 ///
 /// ### Arguments
-/// - `plugin_path` - path to the plugin root directory.
-///   If `None`, directory is identified automatically.
 /// - `plugin_topology` - instance of `PluginTopology`.
 ///   If `None`, topology is parsed from default path.
 ///
-pub fn create_cluster(
-    plugin_path: Option<PathBuf>,
-    plugin_topology: Option<PluginTopology>,
-) -> Cluster {
-    // Look up plugin root directory automatically
-    // unless explicitly specified.
-    let plugin_path = plugin_path.unwrap_or_else(plugin_root_dir);
+pub fn create_cluster(plugin_topology: Option<PluginTopology>) -> Cluster {
+    // Look up plugin root directory (see `plugin_root_dir`).
+    let plugin_path = plugin_root_dir();
     // Use passed topology or go and parse original topology
     // located in plugin root directory.
     let plugin_topology = plugin_topology.map_or_else(

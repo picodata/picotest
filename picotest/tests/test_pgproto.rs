@@ -18,13 +18,13 @@ unsafe fn init_plugin() {
     plugin();
 }
 
-#[picotest(path = "../tmp/test_plugin")]
+#[picotest]
 fn test_get_instances() {
     assert_eq!(cluster.instances().len(), 4);
     assert_eq!(cluster.main().pg_port, 5433)
 }
 
-#[picotest(path = "../tmp/test_plugin")]
+#[picotest]
 fn test_get_instances_by_tier() {
     let default_tier_instances = cluster.get_instances_by_tier("default");
     assert!(default_tier_instances.len() == 4);
@@ -33,7 +33,7 @@ fn test_get_instances_by_tier() {
         .all(|instance| instance.tier == "default"));
 }
 
-#[picotest(path = "../tmp/test_plugin")]
+#[picotest]
 fn test_pg_connection() {
     let conn_string = format!(
         "host=localhost port={} user={} password={}",
