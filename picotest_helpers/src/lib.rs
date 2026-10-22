@@ -276,7 +276,7 @@ impl PicotestInstance {
 
             let picodata_admin = Command::new("picodata")
                 .arg("admin")
-                .arg(self.socket_path.file_name().unwrap())
+                .arg(ADMIN_SOCKET_NAME)
                 .current_dir(self.socket_path.parent().unwrap())
                 .stdin(Stdio::piped())
                 .stdout(Stdio::piped())
@@ -304,7 +304,6 @@ pub struct Cluster {
     instances: Vec<PicotestInstance>,
     picodata_path: PathBuf,
     wait_vshard_discovery: bool,
-    use_release: bool,
 }
 
 impl Drop for Cluster {
@@ -335,7 +334,6 @@ impl Cluster {
             instances: Default::default(),
             picodata_path,
             wait_vshard_discovery: DEFAULT_WAIT_VSHARD_ENABLED,
-            use_release: false,
         };
 
         Ok(cluster)
@@ -343,11 +341,6 @@ impl Cluster {
 
     pub fn wait_vshard_discovery(mut self, is_enabled: bool) -> Self {
         self.wait_vshard_discovery = is_enabled;
-        self
-    }
-
-    pub fn use_release(mut self, is_enabled: bool) -> Self {
-        self.use_release = is_enabled;
         self
     }
 
@@ -549,7 +542,7 @@ impl Cluster {
             .picodata_path(self.picodata_path.clone())
             .wait_vshard_discovery(self.wait_vshard_discovery)
             .wait_vshard_discovery_timeout(DEFAULT_WAIT_VSHARD_TIMEOUT_SECS)
-            .use_release(self.use_release)
+            .use_release(true)
             .build()?;
 
         let data_dir = self.data_dir_path();
