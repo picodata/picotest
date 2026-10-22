@@ -1,7 +1,3 @@
-mod helpers;
-
-use ctor::ctor;
-use helpers::plugin;
 use picotest::*;
 use picotest_helpers::{PICOTEST_USER, PICOTEST_USER_PASSWORD};
 use postgres::{Client, NoTls};
@@ -11,11 +7,6 @@ struct User {
     id: i64,
     name: String,
     last_name: String,
-}
-
-#[ctor]
-unsafe fn init_plugin() {
-    plugin();
 }
 
 #[picotest]

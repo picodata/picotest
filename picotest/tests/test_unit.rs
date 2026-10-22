@@ -1,10 +1,10 @@
-mod helpers;
+mod common;
 
-use constcat::concat;
-use helpers::{
+use common::{
     add_source_file_to_plugin, fresh_plugin, run_cargo_test_in_plugin_workspace, LineMatcher,
     TestPlugin,
 };
+use constcat::concat;
 use rstest::rstest;
 use std::path::PathBuf;
 

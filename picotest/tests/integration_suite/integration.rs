@@ -1,7 +1,4 @@
-mod helpers;
-
-use ctor::ctor;
-use helpers::{plugin, TestPlugin};
+use crate::common::{plugin, TestPlugin};
 use picotest::*;
 use picotest_helpers::{LUA_OUTPUT_HEADER, OUTPUT_FOOTER};
 use serde::{Deserialize, Serialize};
@@ -9,11 +6,6 @@ use std::{collections::HashMap, sync::OnceLock};
 use uuid::Uuid;
 
 static GLOBAL_CLUSTER_UUID: OnceLock<Uuid> = OnceLock::new();
-
-#[ctor]
-unsafe fn init_plugin() {
-    plugin();
-}
 
 #[picotest]
 fn test_func_install_plugin(plugin: &TestPlugin) {
