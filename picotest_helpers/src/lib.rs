@@ -5,7 +5,6 @@ use pike::cluster::{
     PicodataInstance, PicodataInstanceProperties, RunParamsBuilder, StopParamsBuilder, Topology,
 };
 use pike::config::ApplyParamsBuilder;
-use pike::healthcheck::api::is_instance_ready;
 use rand::distr::Alphanumeric;
 use rand::RngExt;
 use rmpv::Value;
@@ -47,8 +46,6 @@ pub const OUTPUT_FOOTER: &str = "Bye";
 pub const DEFAULT_WAIT_VSHARD_TIMEOUT_SECS: u64 = 60;
 pub const DEFAULT_WAIT_VSHARD_ENABLED: bool = true;
 
-// Timeout for a started instance to become ready to serve requests.
-const INSTANCE_READY_TIMEOUT: Duration = Duration::from_secs(60);
 // Timeout for an instance to be expelled from the cluster.
 const INSTANCE_EXPEL_TIMEOUT: Duration = Duration::from_secs(60);
 const POLL_INTERVAL: Duration = Duration::from_millis(100);
@@ -394,17 +391,6 @@ impl Cluster {
         let Some(started) = pike::cluster::run(params)?.pop() else {
             return Ok(());
         };
-
-        let start_time = Instant::now();
-        while !is_instance_ready(&started) {
-            if start_time.elapsed() > INSTANCE_READY_TIMEOUT {
-                bail!(
-                    "instance '{}' did not become ready within {INSTANCE_READY_TIMEOUT:?}",
-                    instance.instance_name
-                );
-            }
-            std::thread::sleep(POLL_INTERVAL);
-        }
 
         *instance.restarted.lock().unwrap() = Some(started);
 
