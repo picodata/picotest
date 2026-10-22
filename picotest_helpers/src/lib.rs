@@ -586,7 +586,7 @@ impl Cluster {
             .base_pg_port(self.slot.base_pg_port())
             .wait_vshard_discovery(self.wait_vshard_discovery)
             .wait_vshard_discovery_timeout(DEFAULT_WAIT_VSHARD_TIMEOUT_SECS)
-            .use_release(self.use_release)
+            .use_release(true)
             .build()?;
 
         let data_dir = self.data_dir_path();
