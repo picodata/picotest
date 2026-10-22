@@ -34,17 +34,8 @@ const ENV_PICODATA_PATH: &str = "PICODATA_PATH";
 const ENV_PLUGIN_PATH: &str = "PLUGIN_PATH";
 const ENV_TOPOLOGY_PATH: &str = "TOPOLOGY_PATH";
 
-pub fn use_release_build() -> bool {
-    !cfg!(debug_assertions)
-}
-
 pub fn plugin_profile_build_path(plugin_path: &Path) -> PathBuf {
-    let profile = if use_release_build() {
-        "release"
-    } else {
-        "debug"
-    };
-    plugin_path.join("target").join(profile)
+    plugin_path.join("target").join("release")
 }
 
 /// Constructs a path to the shared library of the plugin
@@ -237,7 +228,6 @@ pub fn create_cluster(plugin_topology: Option<PluginTopology>) -> Cluster {
     Cluster::new(plugin_path, plugin_topology.unwrap(), picodata_path)
         .expect("Failed to create the cluster")
         .wait_vshard_discovery(wait_vshard_discovery)
-        .use_release(use_release_build())
         .run()
         .expect("Failed to start the cluster")
 }
