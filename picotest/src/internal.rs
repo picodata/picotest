@@ -35,7 +35,7 @@ const ENV_PLUGIN_PATH: &str = "PLUGIN_PATH";
 const ENV_TOPOLOGY_PATH: &str = "TOPOLOGY_PATH";
 
 pub fn plugin_profile_build_path(plugin_path: &Path) -> PathBuf {
-    plugin_path.join("target").join("debug")
+    plugin_path.join("target").join("release")
 }
 
 /// Constructs a path to the shared library of the plugin

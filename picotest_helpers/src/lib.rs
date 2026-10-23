@@ -193,7 +193,8 @@ impl PicotestInstance {
 
         let result = self.read_output(stdout)?;
         if result.is_empty() {
-            let err_output = self.read_output(stderr)?;
+            let mut err_output = String::new();
+            BufReader::new(stderr).read_to_string(&mut err_output)?;
             if !err_output.is_empty() {
                 picodata_admin.kill()?;
                 return Err(Error::other(err_output));
@@ -275,7 +276,8 @@ impl PicotestInstance {
 
             let picodata_admin = Command::new("picodata")
                 .arg("admin")
-                .arg(self.socket_path.clone())
+                .arg(ADMIN_SOCKET_NAME)
+                .current_dir(self.socket_path.parent().unwrap())
                 .stdin(Stdio::piped())
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped())
@@ -540,7 +542,7 @@ impl Cluster {
             .picodata_path(self.picodata_path.clone())
             .wait_vshard_discovery(self.wait_vshard_discovery)
             .wait_vshard_discovery_timeout(DEFAULT_WAIT_VSHARD_TIMEOUT_SECS)
-            .use_release(false)
+            .use_release(true)
             .build()?;
 
         let data_dir = self.data_dir_path();
