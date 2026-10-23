@@ -25,6 +25,7 @@
   - [Управление кластером в Picotest](#управление-кластером-в-picotest)
     - [Структура файлов плагина](#структура-файлов-плагина)
     - [Создание кластера вручную](#создание-кластера-вручную)
+  - [Покрытие кода](#покрытие-кода)
   - [Подключение по Postrges протоколу](#подключение-по-postrges-протоколу)
   - [Тестирование RPC ручек плагина](#тестирование-rpc-ручек-плагина)
   - [Покдлючение к admin консоли и выполнение sql/lua](#покдлючение-к-admin-консоли-и-выполнение-sqllua)
@@ -415,6 +416,45 @@ fn test_without_picotest_macro() {
     assert!(cluster.path == ".");
 }
 ```
+
+## Покрытие кода
+
+Picotest позволяет измерить покрытие кода плагина тестами (как `#[picotest]`, так и `#[picotest_unit]`).
+
+Для сбора и отчёта используется [`cargo-llvm-cov`](https://github.com/taiki-e/cargo-llvm-cov):
+
+```bash
+cargo install cargo-llvm-cov
+rustup component add llvm-tools
+```
+
+### Запуск
+
+```bash
+cargo llvm-cov test --no-report
+
+cargo llvm-cov report
+cargo llvm-cov report --html
+```
+
+Для чистоты отчёта можно скрыть код зависимостей и самого Picotest, отфильтровав их с помощью флага
+`--ignore-filename-regex` при генерации отчёта.
+
+### Запуск без `cargo-llvm-cov`
+
+Можно вручную использовать `llvm-profdata` и `llvm-cov`:
+
+```bash
+export RUSTFLAGS="-C instrument-coverage"
+export LLVM_PROFILE_FILE="$PWD/cov/p-%p-%m.profraw"
+cargo test
+
+LLVM_BIN=$(rustc --print sysroot)/lib/rustlib/$(rustc -vV | sed -n 's/host: //p')/bin
+$LLVM_BIN/llvm-profdata merge -sparse tmp/cov/*.profraw -o tmp/cov/all.profdata
+$LLVM_BIN/llvm-cov report target/debug/lib<имя_плагина>.so -instr-profile=tmp/cov/all.profdata
+```
+
+Примечание: если инстанс выйдет за таймаут после `SIGTERM`, он будет убит `SIGKILL`, и его покрытие потеряется.
 
 ## Подключение по Postrges протоколу
 
