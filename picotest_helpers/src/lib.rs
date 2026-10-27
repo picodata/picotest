@@ -373,7 +373,7 @@ impl Cluster {
             wait_vshard_discovery: DEFAULT_WAIT_VSHARD_ENABLED,
             slot,
             _data_dir_lock: data_dir_lock,
-            use_release: false,
+            use_release: !cfg!(debug_assertions),
         };
 
         Ok(cluster)
