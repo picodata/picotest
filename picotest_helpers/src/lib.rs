@@ -304,6 +304,7 @@ pub struct Cluster {
     instances: Vec<PicotestInstance>,
     picodata_path: PathBuf,
     wait_vshard_discovery: bool,
+    use_release: bool,
 }
 
 impl Drop for Cluster {
@@ -334,6 +335,7 @@ impl Cluster {
             instances: Default::default(),
             picodata_path,
             wait_vshard_discovery: DEFAULT_WAIT_VSHARD_ENABLED,
+            use_release: !cfg!(debug_assertions),
         };
 
         Ok(cluster)
@@ -542,7 +544,7 @@ impl Cluster {
             .picodata_path(self.picodata_path.clone())
             .wait_vshard_discovery(self.wait_vshard_discovery)
             .wait_vshard_discovery_timeout(DEFAULT_WAIT_VSHARD_TIMEOUT_SECS)
-            .use_release(true)
+            .use_release(self.use_release)
             .build()?;
 
         let data_dir = self.data_dir_path();
