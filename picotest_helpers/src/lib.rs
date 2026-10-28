@@ -35,6 +35,10 @@ pub mod topology;
 
 pub type PluginConfigMap = pike::config::PluginConfigMap;
 
+pub fn use_release_build() -> bool {
+    !cfg!(debug_assertions)
+}
+
 const ADMIN_SOCKET_NAME: &str = "admin.sock";
 const DATA_DIR_LOCK_EXT: &str = "lock";
 pub const PICOTEST_USER: &str = "Picotest";
@@ -338,7 +342,6 @@ pub struct Cluster {
     wait_vshard_discovery: bool,
     slot: ClusterSlot,
     _data_dir_lock: File,
-    use_release: bool,
 }
 
 impl Drop for Cluster {
@@ -373,7 +376,6 @@ impl Cluster {
             wait_vshard_discovery: DEFAULT_WAIT_VSHARD_ENABLED,
             slot,
             _data_dir_lock: data_dir_lock,
-            use_release: !cfg!(debug_assertions),
         };
 
         Ok(cluster)
@@ -386,11 +388,6 @@ impl Cluster {
 
     pub fn host(&self) -> Ipv4Addr {
         self.slot.host()
-    }
-
-    pub fn use_release(mut self, is_enabled: bool) -> Self {
-        self.use_release = is_enabled;
-        self
     }
 
     pub fn data_dir_path(&self) -> PathBuf {
@@ -632,7 +629,7 @@ impl Cluster {
             .base_pg_port(self.slot.base_pg_port())
             .wait_vshard_discovery(self.wait_vshard_discovery)
             .wait_vshard_discovery_timeout(DEFAULT_WAIT_VSHARD_TIMEOUT_SECS)
-            .use_release(self.use_release);
+            .use_release(use_release_build());
         builder
     }
 
