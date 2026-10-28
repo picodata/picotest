@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 use constcat::concat;
-use picotest_helpers::run_pike;
+use picotest_helpers::{run_pike, use_release_build};
 use rstest::fixture;
 use std::fs;
 use std::io::{BufRead, BufReader, Error, Read, Write};
@@ -279,7 +279,7 @@ fn run_cargo_test(manifest_dir: &PathBuf, test_args: &[&str]) -> Child {
 
     let mut cmd = Command::new("cargo");
     cmd.arg("test").arg("--quiet");
-    if !cfg!(debug_assertions) {
+    if use_release_build() {
         cmd.arg("--release");
     }
 
