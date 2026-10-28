@@ -70,12 +70,6 @@ pub struct PicotestInstance {
     pub instance_id: u16,
 }
 
-impl From<(PicodataInstance, &PathBuf)> for PicotestInstance {
-    fn from((instance, data_dir): (PicodataInstance, &PathBuf)) -> Self {
-        Self::new(instance, data_dir, Ipv4Addr::LOCALHOST)
-    }
-}
-
 impl PicotestInstance {
     pub fn new(instance: PicodataInstance, data_dir: &Path, host: Ipv4Addr) -> Self {
         let properties = instance.properties();
@@ -125,6 +119,13 @@ impl PicotestInstance {
 
     pub fn http_addr(&self) -> SocketAddrV4 {
         SocketAddrV4::new(self.host, self.http_port)
+    }
+
+    pub fn pg_connection_string(&self) -> String {
+        format!(
+            "postgres://{PICOTEST_USER}:{PICOTEST_USER_PASSWORD}@{}",
+            self.pg_addr()
+        )
     }
 
     pub async fn execute_rpc<S, G>(
@@ -215,7 +216,8 @@ impl PicotestInstance {
 
         let result = self.read_output(stdout)?;
         if result.is_empty() {
-            let err_output = self.read_output(stderr)?;
+            let mut err_output = String::new();
+            BufReader::new(stderr).read_to_string(&mut err_output)?;
             if !err_output.is_empty() {
                 picodata_admin.kill()?;
                 return Err(Error::other(err_output));
@@ -297,7 +299,8 @@ impl PicotestInstance {
 
             let picodata_admin = Command::new("picodata")
                 .arg("admin")
-                .arg(self.socket_path.clone())
+                .arg(ADMIN_SOCKET_NAME)
+                .current_dir(self.socket_path.parent().unwrap())
                 .stdin(Stdio::piped())
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped())
@@ -348,6 +351,8 @@ impl Cluster {
             warn!("Failed to remove stale cluster data directories: {err}");
         }
 
+        let slot = ClusterSlot::acquire(instances_count(&topology), &topology.enviroment)?;
+
         let cluster = Self {
             uuid: Uuid::new_v4(),
             plugin_path,
@@ -356,7 +361,7 @@ impl Cluster {
             instances: Default::default(),
             picodata_path,
             wait_vshard_discovery: DEFAULT_WAIT_VSHARD_ENABLED,
-            slot: ClusterSlot::acquire()?,
+            slot,
             _data_dir_lock: data_dir_lock,
         };
 
@@ -700,6 +705,15 @@ impl Cluster {
                 .expect("Picotest user grant should not fail");
         }
     }
+}
+
+/// Number of instances the topology starts: replicasets times replication factor of every tier.
+fn instances_count(topology: &PluginTopology) -> u16 {
+    topology
+        .tiers
+        .values()
+        .map(|tier| u16::from(tier.replicasets) * u16::from(tier.replication_factor))
+        .sum()
 }
 
 /// Picks a data directory for a new cluster and locks it.

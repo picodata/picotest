@@ -54,7 +54,6 @@ fn test_get_instances() {
     assert_eq!(cluster_uuid, &cluster.uuid);
 
     assert_eq!(cluster.instances().len(), 4);
-    assert_eq!(cluster.main().pg_port, 5433)
 }
 
 #[picotest]
@@ -104,7 +103,7 @@ const SINGLE_NODE_TOPOLOGY: &str = "../../picotest/tests/assets/single_node_topo
 
 #[fixture]
 fn single_node() -> &'static Cluster {
-    cluster_with_topology(SINGLE_NODE_TOPOLOGY.into())
+    cluster(SINGLE_NODE_TOPOLOGY.into())
 }
 
 #[picotest]
@@ -129,7 +128,7 @@ fn test_cluster_with_custom_topology(plugin: &TestPlugin, single_node: &Cluster)
 #[picotest]
 fn test_cluster_is_shared_within_topology(
     single_node: &Cluster,
-    #[from(cluster_with_topology)]
+    #[from(cluster)]
     #[with(TopologyPath::new(SINGLE_NODE_TOPOLOGY))]
     same_cluster: &Cluster,
 ) {

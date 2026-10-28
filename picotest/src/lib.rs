@@ -17,11 +17,6 @@ static SESSION_CLUSTERS: Mutex<BTreeMap<ClusterKey, &'static OnceLock<Cluster>>>
 
 pub type PluginConfigMap = picotest_helpers::PluginConfigMap;
 
-#[fixture]
-pub fn cluster() -> &'static Cluster {
-    get_or_create_session_cluster(None)
-}
-
 /// Path to the cluster topology file.
 #[derive(Clone, Debug, Default)]
 pub struct TopologyPath(Option<PathBuf>);
@@ -56,9 +51,7 @@ impl From<PathBuf> for TopologyPath {
 }
 
 #[fixture]
-pub fn cluster_with_topology(
-    #[default(TopologyPath::default())] topology: TopologyPath,
-) -> &'static Cluster {
+pub fn cluster(#[default(TopologyPath::default())] topology: TopologyPath) -> &'static Cluster {
     get_or_create_session_cluster(Some(&topology.load()))
 }
 

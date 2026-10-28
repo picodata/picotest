@@ -1,5 +1,4 @@
 use picotest::*;
-use picotest_helpers::{PICOTEST_USER, PICOTEST_USER_PASSWORD};
 use postgres::{Client, NoTls};
 
 #[derive(Debug, PartialEq, Eq)]
@@ -12,7 +11,6 @@ struct User {
 #[picotest]
 fn test_get_instances() {
     assert_eq!(cluster.instances().len(), 4);
-    assert_eq!(cluster.main().pg_port, 5433)
 }
 
 #[picotest]
@@ -26,13 +24,7 @@ fn test_get_instances_by_tier() {
 
 #[picotest]
 fn test_pg_connection() {
-    let conn_string = format!(
-        "host=localhost port={} user={} password={}",
-        cluster.main().pg_port,
-        PICOTEST_USER,
-        PICOTEST_USER_PASSWORD
-    );
-    let mut client = Client::connect(conn_string.as_str(), NoTls).unwrap();
+    let mut client = Client::connect(&cluster.main().pg_connection_string(), NoTls).unwrap();
     client
         .execute(
             "
