@@ -29,6 +29,10 @@ pub mod topology;
 
 pub type PluginConfigMap = pike::config::PluginConfigMap;
 
+pub fn use_release_build() -> bool {
+    !cfg!(debug_assertions)
+}
+
 const ADMIN_SOCKET_NAME: &str = "admin.sock";
 const LOCALHOST_IP: &str = "127.0.0.1";
 pub const PICOTEST_USER: &str = "Picotest";
@@ -304,7 +308,6 @@ pub struct Cluster {
     instances: Vec<PicotestInstance>,
     picodata_path: PathBuf,
     wait_vshard_discovery: bool,
-    use_release: bool,
 }
 
 impl Drop for Cluster {
@@ -335,7 +338,6 @@ impl Cluster {
             instances: Default::default(),
             picodata_path,
             wait_vshard_discovery: DEFAULT_WAIT_VSHARD_ENABLED,
-            use_release: !cfg!(debug_assertions),
         };
 
         Ok(cluster)
@@ -544,7 +546,7 @@ impl Cluster {
             .picodata_path(self.picodata_path.clone())
             .wait_vshard_discovery(self.wait_vshard_discovery)
             .wait_vshard_discovery_timeout(DEFAULT_WAIT_VSHARD_TIMEOUT_SECS)
-            .use_release(self.use_release)
+            .use_release(use_release_build())
             .build()?;
 
         let data_dir = self.data_dir_path();
