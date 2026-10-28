@@ -446,7 +446,7 @@ cargo llvm-cov report --html
 
 ```bash
 export RUSTFLAGS="-C instrument-coverage"
-export LLVM_PROFILE_FILE="$PWD/cov/p-%p-%m.profraw"
+export LLVM_PROFILE_FILE="$PWD/tmp/cov/p-%p-%m.profraw"
 cargo test
 
 LLVM_BIN=$(rustc --print sysroot)/lib/rustlib/$(rustc -vV | sed -n 's/host: //p')/bin
