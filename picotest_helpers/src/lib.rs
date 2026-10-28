@@ -1,6 +1,7 @@
 use anyhow::{bail, Context};
 use bytes::Bytes;
 use log::{debug, info, warn};
+use nix::sys::signal::Signal;
 use pike::cluster::{
     PicodataInstance, PicodataInstanceProperties, RunParamsBuilder, StopParamsBuilder, Topology,
 };
@@ -43,6 +44,35 @@ pub const OUTPUT_FOOTER: &str = "Bye";
 // resharding has completed.
 pub const DEFAULT_WAIT_VSHARD_TIMEOUT_SECS: u64 = 60;
 pub const DEFAULT_WAIT_VSHARD_ENABLED: bool = true;
+
+/// Environment variable of the LLVM profiling runtime. If it's set, the test
+/// process is assumed to run under source-based code coverage.
+const ENV_LLVM_PROFILE_FILE: &str = "LLVM_PROFILE_FILE";
+
+/// Returns `true` if the current process runs with LLVM profiling enabled,
+pub fn is_coverage_enabled() -> bool {
+    std::env::var_os(ENV_LLVM_PROFILE_FILE).is_some()
+}
+
+/// Signal used to stop instances of the cluster.
+fn instance_stop_signal() -> Signal {
+    if is_coverage_enabled() {
+        Signal::SIGTERM
+    } else {
+        Signal::SIGKILL
+    }
+}
+
+/// Returns the Cargo target directory the currently running test binary was
+/// built into, or `None` if it can't be identified.
+pub fn cargo_target_dir() -> Option<PathBuf> {
+    let exe = std::env::current_exe().ok()?;
+    let deps_dir = exe.parent()?;
+    if deps_dir.file_name()? != "deps" {
+        return None;
+    }
+    Some(deps_dir.parent()?.parent()?.to_path_buf())
+}
 
 pub fn tmp_dir() -> PathBuf {
     let mut rng = rand::rng();
@@ -302,6 +332,7 @@ pub struct Cluster {
     instances: Vec<PicotestInstance>,
     picodata_path: PathBuf,
     wait_vshard_discovery: bool,
+    target_dir: PathBuf,
 }
 
 impl Drop for Cluster {
@@ -319,6 +350,7 @@ impl Cluster {
         picodata_path: PathBuf,
     ) -> anyhow::Result<Self> {
         let data_dir = tmp_dir();
+        let target_dir = cargo_target_dir().unwrap_or_else(|| plugin_path.join("target"));
 
         if let Err(err) = fs::remove_dir_all(plugin_path.join(data_dir.parent().unwrap())) {
             warn!("Failed to remove cluster data directory: {err}");
@@ -332,6 +364,7 @@ impl Cluster {
             instances: Default::default(),
             picodata_path,
             wait_vshard_discovery: DEFAULT_WAIT_VSHARD_ENABLED,
+            target_dir,
         };
 
         Ok(cluster)
@@ -348,6 +381,7 @@ impl Cluster {
 
     pub fn stop(&self) -> anyhow::Result<()> {
         let params = StopParamsBuilder::default()
+            .signal(instance_stop_signal())
             .plugin_path(self.plugin_path.clone())
             .data_dir(self.data_dir.clone())
             .build()?;
@@ -358,6 +392,7 @@ impl Cluster {
 
     pub fn stop_instance(&self, instance: &PicotestInstance) -> anyhow::Result<()> {
         let params = StopParamsBuilder::default()
+            .signal(instance_stop_signal())
             .plugin_path(self.plugin_path.clone())
             .data_dir(self.data_dir.clone())
             .instance_name(Some(instance.instance_name.clone()))
@@ -541,6 +576,7 @@ impl Cluster {
             .wait_vshard_discovery(self.wait_vshard_discovery)
             .wait_vshard_discovery_timeout(DEFAULT_WAIT_VSHARD_TIMEOUT_SECS)
             .use_release(false)
+            .target_dir(self.target_dir.clone())
             .build()?;
 
         let data_dir = self.data_dir_path();

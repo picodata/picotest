@@ -1296,6 +1296,7 @@ dependencies = [
  "anyhow",
  "bytes",
  "log",
+ "nix 0.31.3",
  "picodata-pike",
  "rand 0.10.3",
  "rmp-serde",
