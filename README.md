@@ -271,7 +271,7 @@ fn test_http_request(single_node: &Cluster) {
 
     instance.http_addr();            // адрес HTTP сервера, например 127.0.0.2:8001
     instance.pg_addr();              // адрес для подключения по Postgres протоколу
-    instance.pg_connection_string(); // строка подключения по Posgres протоколу
+    instance.pg_connection_string(); // строка подключения по Postgres протоколу
     instance.bin_addr();             // адрес для подключения по iproto
     single_node.host();              // адрес, на котором работают все инстансы кластера
 }
