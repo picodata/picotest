@@ -16,6 +16,7 @@
     - [Логирование](#логирование)
     - [Файлы логов кластера](#файлы-логов-кластера)
     - [Совместимость с `rstest`](#совместимость-с-rstest)
+    - [Несколько кластеров с разными топологиями](#несколько-кластеров-с-разными-топологиями)
     - [Применение конфигурации плагина к запущенному кластеру Picodata](#применение-конфигурации-плагина-к-запущенному-кластеру-picodata)
   - [Модульное тестирование](#модульное-тестирование)
     - [Требования к конфигурации](#требования-к-конфигурации)
@@ -100,7 +101,8 @@ graph TD;
 fn test_hello_http_request() {
     // Допустим, что на инстансе кластера развернут HTTP сервер, который
     // имеет обработчик URLа, в который мы стучимся ниже.
-    let url = format!("http://0.0.0.0:8001/api/v1/hello");
+    // Адрес инстанса нужно брать из кластера: у каждого кластера он свой.
+    let url = format!("http://{}/api/v1/hello", cluster.main().http_addr());
     let client = reqwest::blocking::Client::builder()
         .build()
         .unwrap();
@@ -227,6 +229,61 @@ mod test_mod {
         assert_eq!(expected, fibonacci(input))
     }
 ```
+
+### Несколько кластеров с разными топологиями
+
+По умолчанию все тесты запускаются на одном кластере `cluster` с топологией из `topology.toml`.
+С помощью фикстуры `cluster`, принимающей `TopologyPath`, можно
+поднять кластер с альтернативной топологией. Путь указывается относительно
+корневой директории плагина; значение по умолчанию, `TopologyPath::default()`, соответствует
+`topology.toml` в корне плагина.
+
+```rust
+use picotest::*;
+
+#[fixture]
+fn single_node() -> &'static Cluster {
+    cluster("topologies/single_node.toml".into())
+}
+
+#[picotest]
+mod single_node_tests {
+    fn test_instances(single_node: &Cluster) {
+        assert_eq!(single_node.instances().len(), 1);
+    }
+}
+```
+
+Кластер создаётся при первом обращении и переиспользуется всеми тестами с такой же топологией
+(`cluster` с одинаковой топологией возвращает один и тот же кластер).
+Кластеры с разными топологиями работают одновременно, поэтому тесты на них выполняются параллельно.
+
+Чтобы кластеры не мешали друг другу, каждый получает собственный адрес из подсети `127.0.0.0/8`
+(`127.0.0.1`, `127.0.0.2` и так далее) со стандартными портами. Адреса не пересекаются и между
+процессами, поэтому тесты можно запускать параллельно в нескольких процессах, например через `cargo nextest`.
+
+Адрес инстанса не следует задавать в тесте вручную, его нужно получать из кластера:
+
+```rust
+#[picotest]
+fn test_http_request(single_node: &Cluster) {
+    let instance = single_node.main();
+
+    instance.http_addr();            // адрес HTTP сервера, например 127.0.0.2:8001
+    instance.pg_addr();              // адрес для подключения по Postgres протоколу
+    instance.pg_connection_string(); // строка подключения по Postgres протоколу
+    instance.bin_addr();             // адрес для подключения по iproto
+    single_node.host();              // адрес, на котором работают все инстансы кластера
+}
+```
+
+Если на машине доступен только адрес `127.0.0.1`, следующие кластеры
+запускаются на нём же со сдвигом портов на 100, 200 и так далее.
+
+Если в разделе `enviroment` топологии заданы `PICODATA_IPROTO_LISTEN`, `PICODATA_HTTP_LISTEN`
+или `PICODATA_PG_LISTEN`, Picodata слушает на адресах из топологии. Кластер с такой топологией
+всегда занимает `127.0.0.1` со стандартными портами. Если порты на этом адресе заняты,
+запуск завершается ошибкой, а при создании кластера в любом случае пишется предупреждение.
 
 ### Применение конфигурации плагина к запущенному кластеру Picodata
 
@@ -429,7 +486,6 @@ Password: Pic0test
 
 ```rust
 use picotest::*;
-use picotest_helpers::{PICOTEST_USER, PICOTEST_USER_PASSWORD};
 use postgres::{Client, NoTls};
 
 #[derive(Debug, PartialEq, Eq)]
@@ -441,13 +497,7 @@ struct User {
 
 #[picotest]
 fn test_pg_connection() {
-    let conn_string = format!(
-        "host=localhost port={} user={} password={}",
-        cluster.main().pg_port,
-        PICOTEST_USER,
-        PICOTEST_USER_PASSWORD
-    );
-    let mut client = Client::connect(conn_string.as_str(), NoTls).unwrap();
+    let mut client = Client::connect(&cluster.main().pg_connection_string(), NoTls).unwrap();
     client
         .execute(
             "
