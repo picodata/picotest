@@ -11,10 +11,12 @@ use rmpv::Value;
 use rusty_tarantool::tarantool::{ClientConfig, ExecWithParamaters, TarantoolResponse};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
+use slot::{try_lock_file, ClusterSlot};
 use std::collections::BTreeMap;
 use std::ffi::OsStr;
-use std::fs;
+use std::fs::{self, File};
 use std::io::{BufRead, BufReader, Write};
+use std::net::{Ipv4Addr, SocketAddrV4};
 use std::path::{Path, PathBuf};
 use std::{
     io::{Error, Read},
@@ -25,12 +27,13 @@ use topology::PluginTopology;
 use uuid::Uuid;
 
 pub mod migration;
+pub mod slot;
 pub mod topology;
 
 pub type PluginConfigMap = pike::config::PluginConfigMap;
 
 const ADMIN_SOCKET_NAME: &str = "admin.sock";
-const LOCALHOST_IP: &str = "127.0.0.1";
+const DATA_DIR_LOCK_EXT: &str = "lock";
 pub const PICOTEST_USER: &str = "Picotest";
 pub const PICOTEST_USER_IPROTO: &str = "PicotestBin";
 pub const PICOTEST_USER_PASSWORD: &str = "Pic0test";
@@ -58,6 +61,7 @@ pub fn tmp_dir() -> PathBuf {
 pub struct PicotestInstance {
     inner: PicodataInstance,
     pub socket_path: PathBuf,
+    pub host: Ipv4Addr,
     pub bin_port: u16,
     pub pg_port: u16,
     pub http_port: u16,
@@ -66,8 +70,8 @@ pub struct PicotestInstance {
     pub instance_id: u16,
 }
 
-impl From<(PicodataInstance, &PathBuf)> for PicotestInstance {
-    fn from((instance, data_dir): (PicodataInstance, &PathBuf)) -> Self {
+impl PicotestInstance {
+    pub fn new(instance: PicodataInstance, data_dir: &Path, host: Ipv4Addr) -> Self {
         let properties = instance.properties();
         let instance_name = properties.instance_name;
         let socket_path = data_dir
@@ -75,6 +79,7 @@ impl From<(PicodataInstance, &PathBuf)> for PicotestInstance {
             .join(instance_name)
             .join(ADMIN_SOCKET_NAME);
         PicotestInstance {
+            host,
             bin_port: *properties.bin_port,
             pg_port: *properties.pg_port,
             http_port: *properties.http_port,
@@ -104,6 +109,25 @@ impl PicotestInstance {
         &self.inner
     }
 
+    pub fn bin_addr(&self) -> SocketAddrV4 {
+        SocketAddrV4::new(self.host, self.bin_port)
+    }
+
+    pub fn pg_addr(&self) -> SocketAddrV4 {
+        SocketAddrV4::new(self.host, self.pg_port)
+    }
+
+    pub fn http_addr(&self) -> SocketAddrV4 {
+        SocketAddrV4::new(self.host, self.http_port)
+    }
+
+    pub fn pg_connection_string(&self) -> String {
+        format!(
+            "postgres://{PICOTEST_USER}:{PICOTEST_USER_PASSWORD}@{}",
+            self.pg_addr()
+        )
+    }
+
     pub async fn execute_rpc<S, G>(
         &self,
         plugin_name: &str,
@@ -116,9 +140,8 @@ impl PicotestInstance {
         G: DeserializeOwned,
         S: Serialize,
     {
-        let bin_port = self.bin_port;
         let client = ClientConfig::new(
-            format!("{LOCALHOST_IP}:{bin_port}"),
+            self.bin_addr().to_string(),
             PICOTEST_USER_IPROTO,
             PICOTEST_USER_PASSWORD,
         )
@@ -193,7 +216,8 @@ impl PicotestInstance {
 
         let result = self.read_output(stdout)?;
         if result.is_empty() {
-            let err_output = self.read_output(stderr)?;
+            let mut err_output = String::new();
+            BufReader::new(stderr).read_to_string(&mut err_output)?;
             if !err_output.is_empty() {
                 picodata_admin.kill()?;
                 return Err(Error::other(err_output));
@@ -275,7 +299,8 @@ impl PicotestInstance {
 
             let picodata_admin = Command::new("picodata")
                 .arg("admin")
-                .arg(self.socket_path.clone())
+                .arg(ADMIN_SOCKET_NAME)
+                .current_dir(self.socket_path.parent().unwrap())
                 .stdin(Stdio::piped())
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped())
@@ -302,6 +327,8 @@ pub struct Cluster {
     instances: Vec<PicotestInstance>,
     picodata_path: PathBuf,
     wait_vshard_discovery: bool,
+    slot: ClusterSlot,
+    _data_dir_lock: File,
 }
 
 impl Drop for Cluster {
@@ -318,11 +345,13 @@ impl Cluster {
         topology: PluginTopology,
         picodata_path: PathBuf,
     ) -> anyhow::Result<Self> {
-        let data_dir = tmp_dir();
+        let (data_dir, data_dir_lock) = lock_new_data_dir(&plugin_path)?;
 
-        if let Err(err) = fs::remove_dir_all(plugin_path.join(data_dir.parent().unwrap())) {
-            warn!("Failed to remove cluster data directory: {err}");
+        if let Err(err) = remove_stale_data_dirs(&plugin_path.join(data_dir.parent().unwrap())) {
+            warn!("Failed to remove stale cluster data directories: {err}");
         }
+
+        let slot = ClusterSlot::acquire(instances_count(&topology), &topology.enviroment)?;
 
         let cluster = Self {
             uuid: Uuid::new_v4(),
@@ -332,6 +361,8 @@ impl Cluster {
             instances: Default::default(),
             picodata_path,
             wait_vshard_discovery: DEFAULT_WAIT_VSHARD_ENABLED,
+            slot,
+            _data_dir_lock: data_dir_lock,
         };
 
         Ok(cluster)
@@ -340,6 +371,10 @@ impl Cluster {
     pub fn wait_vshard_discovery(mut self, is_enabled: bool) -> Self {
         self.wait_vshard_discovery = is_enabled;
         self
+    }
+
+    pub fn host(&self) -> Ipv4Addr {
+        self.slot.host()
     }
 
     pub fn data_dir_path(&self) -> PathBuf {
@@ -538,17 +573,22 @@ impl Cluster {
             .data_dir(self.data_dir.clone())
             .topology(self.topology.clone())
             .picodata_path(self.picodata_path.clone())
+            .host(Some(self.slot.host()))
+            .base_bin_port(self.slot.base_bin_port())
+            .base_http_port(self.slot.base_http_port())
+            .base_pg_port(self.slot.base_pg_port())
             .wait_vshard_discovery(self.wait_vshard_discovery)
             .wait_vshard_discovery_timeout(DEFAULT_WAIT_VSHARD_TIMEOUT_SECS)
             .use_release(false)
             .build()?;
 
         let data_dir = self.data_dir_path();
+        let host = self.host();
 
         debug!("Starting the cluster with parameters {params:?}");
         let mut instances: Vec<PicotestInstance> = pike::cluster::run(params)?
             .into_iter()
-            .map(|instance| PicotestInstance::from((instance, &data_dir)))
+            .map(|instance| PicotestInstance::new(instance, &data_dir, host))
             .collect();
 
         debug_assert!(
@@ -665,6 +705,54 @@ impl Cluster {
                 .expect("Picotest user grant should not fail");
         }
     }
+}
+
+/// Number of instances the topology starts: replicasets times replication factor of every tier.
+fn instances_count(topology: &PluginTopology) -> u16 {
+    topology
+        .tiers
+        .values()
+        .map(|tier| u16::from(tier.replicasets) * u16::from(tier.replication_factor))
+        .sum()
+}
+
+/// Picks a data directory for a new cluster and locks it.
+///
+/// The lock lives as long as the cluster does and keeps other clusters
+/// from treating the directory as stale.
+fn lock_new_data_dir(plugin_path: &Path) -> anyhow::Result<(PathBuf, File)> {
+    loop {
+        let data_dir = tmp_dir();
+        let data_dir_path = plugin_path.join(&data_dir);
+        fs::create_dir_all(data_dir_path.parent().unwrap())
+            .context("Failed to create directory for cluster data")?;
+
+        if let Some(lock) = try_lock_file(&data_dir_path.with_extension(DATA_DIR_LOCK_EXT))? {
+            return Ok((data_dir, lock));
+        }
+    }
+}
+
+fn remove_stale_data_dirs(tests_dir: &Path) -> anyhow::Result<()> {
+    for entry in fs::read_dir(tests_dir)? {
+        let path = entry?.path();
+        let is_lock = path.extension().is_some_and(|ext| ext == DATA_DIR_LOCK_EXT);
+        let (data_dir, lock_path) = if is_lock {
+            (path.with_extension(""), path)
+        } else {
+            (path.clone(), path.with_extension(DATA_DIR_LOCK_EXT))
+        };
+
+        let Some(_lock) = try_lock_file(&lock_path)? else {
+            continue;
+        };
+        if data_dir.exists() {
+            fs::remove_dir_all(&data_dir)?;
+        }
+        fs::remove_file(&lock_path)?;
+    }
+
+    Ok(())
 }
 
 pub fn run_pike<A, P>(args: Vec<A>, current_dir: P) -> Result<std::process::Child, Error>
