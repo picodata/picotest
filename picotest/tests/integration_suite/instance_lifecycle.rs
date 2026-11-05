@@ -1,8 +1,13 @@
-use picotest::internal::create_cluster;
+use picotest::{internal::create_cluster, *};
 
-#[test]
-fn test_stop_and_restart_instance() {
-    let cluster = create_cluster(None);
+#[fixture]
+fn isolated_cluster() -> Cluster {
+    create_cluster(None)
+}
+
+#[rstest]
+fn test_stop_and_restart_instance(isolated_cluster: Cluster) {
+    let cluster = isolated_cluster;
     let instance = &cluster.instances()[1];
     assert!(instance.is_running());
 
@@ -18,9 +23,9 @@ fn test_stop_and_restart_instance() {
     assert!(instance.run_lua("return 1 + 1").unwrap().contains("2"));
 }
 
-#[test]
-fn test_expel_instance() {
-    let cluster = create_cluster(None);
+#[rstest]
+fn test_expel_instance(isolated_cluster: Cluster) {
+    let cluster = isolated_cluster;
     let instance = &cluster.instances()[3];
     assert!(instance.is_running());
 
