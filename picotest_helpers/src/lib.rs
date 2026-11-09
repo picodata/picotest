@@ -2,7 +2,8 @@ use anyhow::{bail, Context};
 use bytes::Bytes;
 use log::{debug, info, warn};
 use pike::cluster::{
-    PicodataInstance, PicodataInstanceProperties, RunParamsBuilder, StopParamsBuilder, Topology,
+    ExpelParamsBuilder, PicodataInstance, PicodataInstanceProperties, RunParamsBuilder,
+    StopParamsBuilder, Topology,
 };
 use pike::config::ApplyParamsBuilder;
 use rand::distr::Alphanumeric;
@@ -48,10 +49,6 @@ pub const OUTPUT_FOOTER: &str = "Bye";
 // resharding has completed.
 pub const DEFAULT_WAIT_VSHARD_TIMEOUT_SECS: u64 = 60;
 pub const DEFAULT_WAIT_VSHARD_ENABLED: bool = true;
-
-// Timeout for an instance to be expelled from the cluster.
-const INSTANCE_EXPEL_TIMEOUT: Duration = Duration::from_secs(60);
-const POLL_INTERVAL: Duration = Duration::from_millis(100);
 
 pub fn tmp_dir() -> PathBuf {
     let mut rng = rand::rng();
@@ -438,38 +435,16 @@ impl Cluster {
     }
 
     pub fn expel_instance(&self, instance: &PicotestInstance, force: bool) -> anyhow::Result<()> {
-        let instance_name = &instance.instance_name;
-        let peer = self
-            .instances
-            .iter()
-            .find(|peer| peer.instance_name != *instance_name && peer.is_running())
-            .context("no running instance left to perform expel")?;
+        let params = ExpelParamsBuilder::default()
+            .plugin_path(self.plugin_path.clone())
+            .data_dir(self.data_dir.clone())
+            .picodata_path(self.picodata_path.clone())
+            .instance_name(instance.instance_name.clone())
+            .force(force)
+            .build()?;
 
-        let output = peer.run_lua(format!(
-            "return pico.expel('{instance_name}', {{ force = {force}, timeout = {} }})",
-            INSTANCE_EXPEL_TIMEOUT.as_secs()
-        ))?;
-        if !output.lines().any(|line| line.trim() == "- true") {
-            bail!("failed to expel instance '{instance_name}': {output}");
-        }
-
-        let start_time = Instant::now();
-        loop {
-            let state = peer.run_lua(format!(
-                "return box.space._pico_instance:get('{instance_name}').current_state[1]"
-            ))?;
-            if state.contains("Expelled") {
-                break;
-            }
-            if start_time.elapsed() > INSTANCE_EXPEL_TIMEOUT {
-                bail!(
-                    "instance '{instance_name}' was not expelled within {INSTANCE_EXPEL_TIMEOUT:?}"
-                );
-            }
-            std::thread::sleep(POLL_INTERVAL);
-        }
-
-        self.stop_instance(instance)
+        debug!("Expelling the cluster instance with parameters {params:?}");
+        pike::cluster::expel(&params)
     }
 
     /// Applies passed plugin config to the running cluster through the interface of command
