@@ -1,19 +1,13 @@
 [workspace]
 resolver = "2"
-members = [
-    "picotest", 
-    "picotest_macros", 
-    "picotest_helpers", 
-]
+members = ["picotest", "picotest_macros", "picotest_helpers"]
 
-exclude = [
-    "tmp/test_plugin"
-]
+exclude = ["tmp/test_plugin"]
 
 [workspace.dependencies]
 anyhow = { version = "1.0.102" }
 picodata-pike = { version = "^6.1.0" }
-rstest = { version = "0.28.0"}
+rstest = { version = "0.28.0" }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_norway = { version = "0.9" }
 rmp-serde = { version = "^1.1" }

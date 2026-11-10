@@ -1,5 +1,6 @@
 #[path = "../common/mod.rs"]
 mod common;
+mod instance_lifecycle;
 mod integration;
 mod pgproto;
 

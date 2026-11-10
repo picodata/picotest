@@ -2,7 +2,8 @@ use anyhow::{bail, Context};
 use bytes::Bytes;
 use log::{debug, info, warn};
 use pike::cluster::{
-    PicodataInstance, PicodataInstanceProperties, RunParamsBuilder, StopParamsBuilder, Topology,
+    ExpelParamsBuilder, PicodataInstance, PicodataInstanceProperties, RunParamsBuilder,
+    StopParamsBuilder, Topology,
 };
 use pike::config::ApplyParamsBuilder;
 use rand::distr::Alphanumeric;
@@ -17,7 +18,9 @@ use std::ffi::OsStr;
 use std::fs::{self, File};
 use std::io::{BufRead, BufReader, Write};
 use std::net::{Ipv4Addr, SocketAddrV4};
+use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 use std::{
     io::{Error, Read},
     process::{Child, Command, Stdio},
@@ -60,6 +63,7 @@ pub fn tmp_dir() -> PathBuf {
 
 pub struct PicotestInstance {
     inner: PicodataInstance,
+    restarted: Mutex<Option<PicodataInstance>>,
     pub socket_path: PathBuf,
     pub host: Ipv4Addr,
     pub bin_port: u16,
@@ -87,6 +91,7 @@ impl PicotestInstance {
             tier: properties.tier.to_string(),
             instance_id: *properties.instance_id,
             inner: instance,
+            restarted: Mutex::new(None),
             socket_path,
         }
     }
@@ -126,6 +131,10 @@ impl PicotestInstance {
             "postgres://{PICOTEST_USER}:{PICOTEST_USER_PASSWORD}@{}",
             self.pg_addr()
         )
+    }
+
+    pub fn is_running(&self) -> bool {
+        UnixStream::connect(&self.socket_path).is_ok()
     }
 
     pub async fn execute_rpc<S, G>(
@@ -402,6 +411,42 @@ impl Cluster {
         pike::cluster::stop(&params)
     }
 
+    pub fn start_instance(&self, instance: &PicotestInstance) -> anyhow::Result<()> {
+        let params = self
+            .run_params_builder()
+            .instance_name(Some(instance.instance_name.clone()))
+            // Plugin has already been built on cluster startup.
+            .no_build(true)
+            .build()?;
+
+        debug!("Starting the cluster instance with parameters {params:?}");
+        let Some(started) = pike::cluster::run(params)?.pop() else {
+            return Ok(());
+        };
+
+        *instance.restarted.lock().unwrap() = Some(started);
+
+        Ok(())
+    }
+
+    pub fn restart_instance(&self, instance: &PicotestInstance) -> anyhow::Result<()> {
+        self.stop_instance(instance)?;
+        self.start_instance(instance)
+    }
+
+    pub fn expel_instance(&self, instance: &PicotestInstance, force: bool) -> anyhow::Result<()> {
+        let params = ExpelParamsBuilder::default()
+            .plugin_path(self.plugin_path.clone())
+            .data_dir(self.data_dir.clone())
+            .picodata_path(self.picodata_path.clone())
+            .instance_name(instance.instance_name.clone())
+            .force(force)
+            .build()?;
+
+        debug!("Expelling the cluster instance with parameters {params:?}");
+        pike::cluster::expel(&params)
+    }
+
     /// Applies passed plugin config to the running cluster through the interface of command
     /// "[pike config apply](https://github.com/picodata/pike?tab=readme-ov-file#config-apply)".
     ///
@@ -567,8 +612,9 @@ impl Cluster {
         pike::config::apply(&params)
     }
 
-    pub fn run(mut self) -> anyhow::Result<Self> {
-        let params = RunParamsBuilder::default()
+    fn run_params_builder(&self) -> RunParamsBuilder {
+        let mut builder = RunParamsBuilder::default();
+        builder
             .plugin_path(self.plugin_path.clone())
             .data_dir(self.data_dir.clone())
             .topology(self.topology.clone())
@@ -579,8 +625,12 @@ impl Cluster {
             .base_pg_port(self.slot.base_pg_port())
             .wait_vshard_discovery(self.wait_vshard_discovery)
             .wait_vshard_discovery_timeout(DEFAULT_WAIT_VSHARD_TIMEOUT_SECS)
-            .use_release(false)
-            .build()?;
+            .use_release(false);
+        builder
+    }
+
+    pub fn run(mut self) -> anyhow::Result<Self> {
+        let params = self.run_params_builder().build()?;
 
         let data_dir = self.data_dir_path();
         let host = self.host();
