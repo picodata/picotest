@@ -11,7 +11,7 @@ use picotest_helpers::topology::{
     parse_topology, PluginTopology, SingleNodeTopologyTransformer, TopologyTransformer,
     DEFAULT_TIER,
 };
-use picotest_helpers::{use_release_build, Cluster, DEFAULT_WAIT_VSHARD_ENABLED};
+use picotest_helpers::{cargo_target_dir, use_release_build, Cluster, DEFAULT_WAIT_VSHARD_ENABLED};
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::env::{var, VarError};
@@ -34,13 +34,16 @@ const ENV_PICODATA_PATH: &str = "PICODATA_PATH";
 const ENV_PLUGIN_PATH: &str = "PLUGIN_PATH";
 const ENV_TOPOLOGY_PATH: &str = "TOPOLOGY_PATH";
 
+/// Returns the directory where the plugin is built in the selected profile.
 pub fn plugin_profile_build_path(plugin_path: &Path) -> PathBuf {
     let profile = if use_release_build() {
         "release"
     } else {
         "debug"
     };
-    plugin_path.join("target").join(profile)
+    cargo_target_dir()
+        .unwrap_or_else(|| plugin_path.join("target"))
+        .join(profile)
 }
 
 /// Constructs a path to the shared library of the plugin
