@@ -35,6 +35,10 @@ pub mod topology;
 
 pub type PluginConfigMap = pike::config::PluginConfigMap;
 
+pub fn use_release_build() -> bool {
+    !cfg!(debug_assertions)
+}
+
 const ADMIN_SOCKET_NAME: &str = "admin.sock";
 const DATA_DIR_LOCK_EXT: &str = "lock";
 pub const PICOTEST_USER: &str = "Picotest";
@@ -625,13 +629,12 @@ impl Cluster {
             .base_pg_port(self.slot.base_pg_port())
             .wait_vshard_discovery(self.wait_vshard_discovery)
             .wait_vshard_discovery_timeout(DEFAULT_WAIT_VSHARD_TIMEOUT_SECS)
-            .use_release(false);
+            .use_release(use_release_build());
         builder
     }
 
     pub fn run(mut self) -> anyhow::Result<Self> {
         let params = self.run_params_builder().build()?;
-
         let data_dir = self.data_dir_path();
         let host = self.host();
 
@@ -767,9 +770,6 @@ fn instances_count(topology: &PluginTopology) -> u16 {
 }
 
 /// Picks a data directory for a new cluster and locks it.
-///
-/// The lock lives as long as the cluster does and keeps other clusters
-/// from treating the directory as stale.
 fn lock_new_data_dir(plugin_path: &Path) -> anyhow::Result<(PathBuf, File)> {
     loop {
         let data_dir = tmp_dir();
