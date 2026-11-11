@@ -4,12 +4,26 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## [Unreleased]
+## [4.0.0]
+
+### Breaking changes
+
+* Удален `path` атрибут для макроса `#[picotest]`, передать путь до плагина теперь можно через переменную `PLUGIN_PATH`
+* Фикстура `cluster` вместо `plugin_path: Option<&str>` принимает `topology: TopologyPath`
+* Из `get_or_create_session_cluster` и `internal::create_cluster` удален параметр `plugin_path`
+* Удалена публичная переменная `SESSION_CLUSTER`
+* Версия Pike обновлена до 6.1.0
+
+### Added
+
+* Поддержка нескольких кластеров с разными топологиями: фикстура `cluster` принимает путь к альтернативному файлу топологии (`TopologyPath`). Кластеры работают параллельно, каждый на собственном адресе из подсети `127.0.0.0/8`, что позволяет запускать тесты в нескольких процессах (например, через `cargo nextest`)
+* Методы получения адресов инстанса: `bin_addr`, `pg_addr`, `http_addr`, `pg_connection_string`, а также `Cluster::host`
+* Методы управления инстансами кластера: `start_instance`, `restart_instance`, `expel_instance` и `PicotestInstance::is_running`
+* Поддержка релизной сборки плагина: профиль сборки плагина наследуется от профиля тестов (`cargo test --release`)
+* Поддержка измерения покрытия кода плагина тестами `#[picotest]` и `#[picotest_unit]`, в том числе через `cargo-llvm-cov`
 
 ### Changed
 
-* Удален `path` атрибут для макроса `#[picotest]`, передать путь до плагина теперь можно через переменную `PLUGIN_PATH`
-* Версия Pike обновлена до 6.1.0
 * Версия Picodata обновлена до 26.2.1 in CI
 
 ## [3.2.3]

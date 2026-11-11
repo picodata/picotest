@@ -1270,7 +1270,7 @@ dependencies = [
 
 [[package]]
 name = "picotest"
-version = "3.2.3"
+version = "4.0.0"
 dependencies = [
  "anyhow",
  "constcat",
@@ -1291,7 +1291,7 @@ dependencies = [
 
 [[package]]
 name = "picotest_helpers"
-version = "3.2.3"
+version = "4.0.0"
 dependencies = [
  "anyhow",
  "bytes",
@@ -1310,7 +1310,7 @@ dependencies = [
 
 [[package]]
 name = "picotest_macros"
-version = "3.2.3"
+version = "4.0.0"
 dependencies = [
  "proc-macro2",
  "quote",
