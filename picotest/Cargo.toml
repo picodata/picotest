@@ -1,6 +1,6 @@
 [package]
 name = "picotest"
-version = "4.0.0"
+version = "4.1.0"
 edition = "2021"
 rust-version = "1.99"
 license = "BSD-2-Clause"
@@ -20,8 +20,8 @@ authors = [
 
 
 [dependencies]
-picotest_macros = { path = "../picotest_macros", version = "4.0.0" }
-picotest_helpers = { path = "../picotest_helpers", version = "4.0.0" }
+picotest_macros = { path = "../picotest_macros", version = "4.1.0" }
+picotest_helpers = { path = "../picotest_helpers", version = "4.1.0" }
 anyhow.workspace = true
 ctor = "1.0.7"
 dtor = "1.0.5"
