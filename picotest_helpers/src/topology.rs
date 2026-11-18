@@ -152,7 +152,7 @@ mod tests {
 
         assert_eq!(2, plugin.services.len(), "should contain two services");
 
-        for (_, service) in plugin.services.iter() {
+        for service in plugin.services.values() {
             assert_eq!(vec![DEFAULT_TIER], service.tiers);
         }
 
