@@ -2,6 +2,7 @@
 name = "picotest_macros"
 version = "4.0.0"
 edition = "2021"
+rust-version = "1.99"
 license = "BSD-2-Clause"
 description = "Test framework for Picodata plugin"
 homepage = "https://picodata.io/"

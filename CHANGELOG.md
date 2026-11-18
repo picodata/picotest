@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+* Версия Pike обновлена до 6.2.1
+* Минимальная поддерживаемая версия Rust (`rust-version`) — 1.99
+* Версия Rust для разработки и CI зафиксирована в `rust-toolchain.toml` и обновлена до 1.100
+
 ## [4.0.0]
 
 ### Breaking changes
