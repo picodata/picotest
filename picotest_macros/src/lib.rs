@@ -74,30 +74,12 @@ pub fn picotest_unit(_: TokenStream, tokens: TokenStream) -> TokenStream {
             let tokens = quote! {
                 #[test]
                 fn #test_runner_ident() {
-                    use picotest::internal;
-
-                    let plugin_path = internal::plugin_root_dir();
-                    let plugin_dylib_path =
-                        internal::plugin_dylib_path(&plugin_path, env!("CARGO_PKG_NAME"));
-                    let plugin_topology = internal::get_or_create_unit_test_topology();
-
-                    let call_test_fn_query =
-                        internal::lua_ffi_call_unit_test(
-                            #ffi_test_callable, plugin_dylib_path.to_str().unwrap());
-
-                    let cluster = picotest::get_or_create_session_cluster(
-                        plugin_topology.into(),
+                    picotest::internal::run_unit_test(
+                        #ffi_test_callable,
+                        #test_fn_name,
+                        env!("CARGO_PKG_NAME"),
+                        env!("CARGO_MANIFEST_DIR"),
                     );
-
-                    let output = cluster.run_lua(call_test_fn_query)
-                        .expect("Failed to execute query");
-
-                    if let Err(err) = internal::verify_unit_test_output(&output) {
-                        for l in output.split("----") {
-                            println!("[Lua] {l}")
-                        }
-                        panic!("Test '{}' exited with failure: {}", #test_fn_name, err);
-                    }
                 }
             };
 

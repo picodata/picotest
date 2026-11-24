@@ -4,7 +4,7 @@ use picotest_helpers::{run_pike, use_release_build};
 use rstest::fixture;
 use std::fs;
 use std::io::{BufRead, BufReader, Error, Read, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Child, Command, ExitStatus, Stdio};
 use std::time::Duration;
 use wait_timeout::ChildExt;
@@ -12,6 +12,7 @@ use wait_timeout::ChildExt;
 const TMP_DIR: &str = "../tmp/";
 const PLUGIN_NAME: &str = "test_plugin";
 const PLUGIN_DIR: &str = concat!(TMP_DIR, PLUGIN_NAME);
+const TEST_CRATE_DIR: &str = concat!(TMP_DIR, "test_standalone_crate");
 const PLUGIN_SERVICE_NAME: &str = "example_service";
 const PROCESS_WAIT_TIMEOUT: Duration = Duration::from_secs(10);
 const TESTS_EXECUTION_TIMELIMIT: Duration = Duration::from_secs(1200);
@@ -111,10 +112,72 @@ pub fn create_test_plugin(remove_if_exists: bool) -> TestPlugin {
 /// * `source_path` - path to *.rs file. Module will be extracted from filename.
 ///
 pub fn add_source_file_to_plugin(plugin: &TestPlugin, source_path: PathBuf) {
+    add_source_file(&plugin.path.join(&plugin.name).join("src"), source_path);
+}
+
+/// Crate that is not a plugin: no `topology.toml`, no plugin manifest.
+#[derive(Debug)]
+pub struct TestCrate {
+    pub path: PathBuf,
+}
+
+/// Creates a library crate that is not a plugin, depending on picotest.
+///
+/// Its package name differs from its library name on purpose: the library
+/// built for the tests must be found by the library name.
+///
+/// Sources are recreated on every call, but the build directory is kept
+/// to avoid building picotest dependencies from scratch.
+pub fn create_test_crate() -> TestCrate {
+    let crate_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(TEST_CRATE_DIR);
+    let src_path = crate_path.join("src");
+    if src_path.exists() {
+        fs::remove_dir_all(&src_path).expect("Failed to remove test crate sources");
+    }
+    fs::create_dir_all(&src_path).expect("Failed to create test crate directory");
+    let crate_path = fs::canonicalize(&crate_path).unwrap();
+
+    let picotest_path = env!("CARGO_MANIFEST_DIR");
+    fs::write(
+        crate_path.join("Cargo.toml"),
+        format!(
+            r#"[package]
+name = "test-standalone-crate"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "standalone_lib"
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+picotest = {{ path = "{picotest_path}" }}
+
+# Not a member of the picotest workspace.
+[workspace]
+"#
+        ),
+    )
+    .expect("Failed to write Cargo.toml of test crate");
+    fs::write(src_path.join("lib.rs"), "").expect("Failed to write lib.rs of test crate");
+
+    // The tests must not be pointed to a plugin.
+    unsafe {
+        std::env::remove_var("PLUGIN_PATH");
+    }
+
+    TestCrate { path: crate_path }
+}
+
+pub fn add_source_file_to_crate(test_crate: &TestCrate, source_path: PathBuf) {
+    add_source_file(&test_crate.path.join("src"), source_path);
+}
+
+/// Copies *.rs file to `sources_dir` and adds module to its lib.rs.
+fn add_source_file(plugin_sources: &Path, source_path: PathBuf) {
     assert!(source_path.exists(), "source file should exist");
     assert_eq!(source_path.extension().unwrap(), "rs");
 
-    let plugin_sources = plugin.path.join(&plugin.name).join("src");
     let source_filename = source_path.file_name().unwrap();
 
     let module_name = source_filename

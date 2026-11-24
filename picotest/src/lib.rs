@@ -10,7 +10,7 @@ pub use std::{panic, path::PathBuf, sync::OnceLock, time::Duration};
 
 pub mod internal;
 
-type ClusterKey = (PathBuf, String);
+pub(crate) type ClusterKey = (PathBuf, String);
 
 static SESSION_CLUSTERS: Mutex<BTreeMap<ClusterKey, &'static OnceLock<Cluster>>> =
     Mutex::new(BTreeMap::new());
@@ -60,6 +60,16 @@ pub fn get_or_create_session_cluster(plugin_topology: Option<&PluginTopology>) -
         plugin_topology.map_or_else(|| TopologyPath::default().load(), Clone::clone);
 
     let key = (internal::plugin_root_dir(), format!("{plugin_topology:?}"));
+    get_or_create_cluster(key, || internal::create_cluster(Some(plugin_topology)))
+}
+
+/// Returns the session cluster registered under `key`, creating it with `create` on first call.
+///
+/// Every cluster created here is stopped by [`tear_down`] when the test binary exits.
+pub(crate) fn get_or_create_cluster(
+    key: ClusterKey,
+    create: impl FnOnce() -> Cluster,
+) -> &'static Cluster {
     let cell = *SESSION_CLUSTERS
         .lock()
         .unwrap_or_else(PoisonError::into_inner)
@@ -69,7 +79,7 @@ pub fn get_or_create_session_cluster(plugin_topology: Option<&PluginTopology>) -
     cell.get_or_init(|| {
         let _ = env_logger::try_init();
 
-        internal::create_cluster(Some(plugin_topology))
+        create()
     })
 }
 
