@@ -56,7 +56,9 @@ pub fn picotest_unit(_: TokenStream, tokens: TokenStream) -> TokenStream {
             test_fn.vis = parse_quote! { pub };
             test_fn.sig.abi = parse_quote! { extern "C" };
             // Set no mangle attribute to avoid spoiling of function signature.
+            // Unit-tests run only in debug builds, so keep them out of release ones.
             test_fn.attrs = vec![
+                parse_quote! { #[cfg(debug_assertions)] },
                 parse_quote! { #[allow(dead_code)]  },
                 parse_quote! { #[unsafe(no_mangle)] },
             ];
@@ -73,6 +75,10 @@ pub fn picotest_unit(_: TokenStream, tokens: TokenStream) -> TokenStream {
 
             let tokens = quote! {
                 #[test]
+                #[cfg_attr(
+                    not(debug_assertions),
+                    ignore = "#[picotest_unit] tests run only in debug builds"
+                )]
                 fn #test_runner_ident() {
                     use picotest::internal;
 
