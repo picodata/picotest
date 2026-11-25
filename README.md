@@ -52,6 +52,12 @@ cargo add --dev picotest
 cargo add --dev rstest
 ```
 
+- Для [юнит-тестов](#модульное-тестирование) дополнительно добавить макрос в обычные зависимости:
+
+```bash
+cargo add picotest_macros
+```
+
 ## Совместимость с Picodata
 
 |     Picotest    |    Picodata     |
@@ -137,6 +143,12 @@ mod test_mod {
         assert_eq!("bar", "bar");
     }
 }
+```
+
+Профиль сборки плагина наследуется от профиля, в котором собраны тесты. Чтобы запустить тесты на релизной сборке плагина:
+
+```sh
+cargo test --release
 ```
 
 ### Переменные окружения
@@ -365,9 +377,39 @@ graph TD;
 crate-type = ["cdylib"]
 ```
 
+### Подключение зависимостей
+
+Юнит-тесты объявляются в коде библиотеки (`src/`), который собирается и без `cargo test`. Поэтому макрос `#[picotest_unit]` должен быть доступен в обычной сборке, а сам Picotest нужен только тестам:
+
+```toml
+[dependencies]
+picotest_macros = "4"
+
+[dev-dependencies]
+picotest = "4"
+```
+
+В коде библиотеки макрос импортируется из `picotest_macros`:
+
+```rust
+use picotest_macros::picotest_unit;
+```
+
+`picotest_macros` — процедурный макрос: он работает только во время компиляции и в библиотеку плагина не попадает. Весь рантайм Picotest (pike, клиент кластера и их зависимости) остаётся в тестовой сборке. Версии `picotest_macros` и `picotest` должны совпадать.
+
+Если подключить `picotest` в `[dependencies]`, тесты тоже будут работать, но библиотека плагина заметно потяжелеет, а в неё попадёт код Picotest, в том числе деструктор, который выполнится при завершении процесса Пикодаты. Пример для крейта с одним юнит-тестом:
+
+| | `picotest` в `[dependencies]` | `picotest_macros` в `[dependencies]`, `picotest` в `[dev-dependencies]` |
+|---|---|---|
+| Release-библиотека `.so` | 1,23 МБ | 0,41 МБ |
+| Debug-библиотека `.so` | 95 МБ | 4,5 МБ |
+| Крейтов в обычной сборке | 184 | 33 |
+
 ### Примеры использования
 
 ```rust
+use picotest_macros::picotest_unit;
+
 #[picotest_unit]
 fn test_my_http_query() {
     let http_client = fibreq::ClientBuilder::new().build();
@@ -387,11 +429,7 @@ fn test_my_http_query() {
 cargo test
 ```
 
-Профиль сборки плагина наследуется от профиля, в котором собраны тесты. Чтобы запустить тесты на релизной сборке плагина:
-
-```sh
-cargo test --release
-```
+Юнит-тесты выполняются только в debug-сборке (при включённых `debug_assertions`). В release-сборку тела тестов не попадают, поэтому `cargo build --release` и `cargo pike plugin pack` собирают библиотеку без них. При запуске `cargo test --release` юнит-тесты помечаются как пропущенные (`ignored`), интеграционные тесты `#[picotest]` при этом выполняются как обычно.
 
 ### Ограничения
 

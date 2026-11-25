@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+* `#[picotest_unit]` тесты компилируются только в debug-сборке: в release-сборку библиотеки (`cargo build --release`, `cargo pike plugin pack`) тела тестов не попадают, а `cargo test --release` помечает их как `ignored`. Интеграционные тесты `#[picotest]` не затронуты
+* Рекомендуемое подключение для юнит-тестов: `picotest_macros` в `[dependencies]`, `picotest` в `[dev-dependencies]`. Так рантайм Picotest не попадает в библиотеку плагина (release-сборка примерно в 3 раза меньше), а в README описана настройка зависимостей
+
 ## [4.1.0]
 
 ### Changed
