@@ -1,5 +1,5 @@
 use anyhow::Context;
-use pike::cluster::Tier;
+pub use pike::cluster::Tier;
 use std::{fs, path::PathBuf};
 
 use crate::migration::MigrationContextProvider;

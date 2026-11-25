@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/) and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+* `#[picotest_unit]` в крейтах, которые не являются плагинами. Если `topology.toml` не найден и не задан `PLUGIN_PATH`, тесты выполняются на одном инстансе Пикодаты без плагинов, а библиотеку крейта собирает Picotest.
+
 ## [4.1.0]
 
 ### Changed
